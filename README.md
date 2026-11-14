@@ -18,6 +18,7 @@ Tout reste sur l'appareil : aucun compte, aucun serveur.
 
 - [Compatibilité iOS](docs/COMPATIBILITE.md) — pourquoi la version de bureau ne tourne pas sur iOS,
   ce que couvre la version 0.1.0, ce qui a été vérifié.
+- [Guide d'installation pour débutants (Word)](docs/Guide-installation-iOS.docx) — pas à pas, sans connaissance technique.
 - [Installation](docs/INSTALLATION-IOS.md) — depuis Windows sans Mac, avec Xcode, ou TestFlight / App Store.
 - [Journal des versions](CHANGELOG.md).
 
