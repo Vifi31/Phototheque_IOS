@@ -42,7 +42,7 @@ struct ReportDetail: View {
                     ForEach(Array(t.rows.prefix(100).enumerated()), id: \.offset) { _, row in
                         VStack(alignment: .leading, spacing: 2) {
                             Text(row.first ?? "").font(.subheadline).lineLimit(1)
-                            Text(zip(t.headers, row).dropFirst().filter { !$0.1.isEmpty }.prefix(4).map { "\($0.0) : \($0.1)" }.joined(separator: " · "))
+                            Text(summary(t.headers, row))
                                 .font(.caption2).foregroundStyle(.secondary).lineLimit(2)
                         }
                     }
@@ -52,6 +52,16 @@ struct ReportDetail: View {
         .navigationTitle(kind.label)
         .navigationBarTitleDisplayMode(.inline)
         .onAppear(perform: build)
+    }
+
+    /// « Colonne : valeur · … » pour les 4 premières colonnes renseignées (après la première).
+    private func summary(_ headers: [String], _ row: [String]) -> String {
+        var parts: [String] = []
+        for (i, h) in headers.enumerated() where i > 0 && i < row.count && !row[i].isEmpty {
+            parts.append(h + " : " + row[i])
+            if parts.count == 4 { break }
+        }
+        return parts.joined(separator: " · ")
     }
 
     private func build() {

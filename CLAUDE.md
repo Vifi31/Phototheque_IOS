@@ -21,9 +21,14 @@ lisible sans compte : `https://api.github.com/repos/Vifi31/Phototheque_IOS/actio
 
 - `Core/` (paquet `PhotothequeCore`) : toute la logique, sans UIKit/SwiftUI.
   `Database` (SQLite3 du SDK ou `CSQLite` sous Linux), `Schema` (user_version),
-  `Catalog` + extensions (Keywords, Search, Collections, Duplicates, Backup).
+  `Catalog` + extensions : Keywords, Search (`SearchCriteria` : choix multiples, ET / OU), Collections, Duplicates,
+  Variants, Edits (retouche non destructive, `EditParams` versionné), Exports (plan, noms, tirages), Albums +
+  AlbumProject (projet `.album.json` du bureau), Documents (plan des PDF), Dashboard, Reports, Metadata (lots
+  annulables, XMP, récents), AI (étiquettes Vision, suggestions, événements), Backup + BackupCrypto (AES-GCM) +
+  BackupPolicy (rotation, test de restauration, parties), Update. Schéma : version 4 (migrations 1 → 4).
 - `App/` : vues SwiftUI, `Library` (@MainActor, seule à toucher au catalogue),
-  `ImageTools` (ImageIO : métadonnées, vignettes, dHash), `ImageCache`.
+  `ImageTools` (ImageIO : métadonnées, vignettes, dHash), `ImageCache`, `EditRenderer` (CoreImage),
+  `Exporter`, `AlbumPDF` / `DocumentPDF` / `PDFBuilder` (UIGraphicsPDFRenderer), `AIAnalyzer` (Vision), `Keychain`.
 
 ## Conventions (reprises du bureau)
 
@@ -40,3 +45,11 @@ lisible sans compte : `https://api.github.com/repos/Vifi31/Phototheque_IOS/actio
 - WSL : `swift test --build-system native` (le système par défaut perd LD_LIBRARY_PATH
   à l'édition de liens) ; libncurses6 / libsqlite3-dev extraits sans root dans ~/swiftdeps.
 - `SWIFT_VERSION 5.0` pour l'app (concurrence stricte de Swift 6 non activée).
+- Sous Linux, `swift-crypto` (module `Crypto`) remplace CryptoKit ; PBKDF2 maison au-dessus de `HMAC<SHA256>`.
+- Swift 6.1 (CI) refuse certaines expressions longues (« unable to type-check… ») et un `Data.withUnsafeBytes`
+  à fermeture sans valeur : décomposer les expressions, éviter `withUnsafeBytes` sur `Data`.
+- Dans les tests, `CatalogTestCase` a une méthode `date(_:)` : ne pas la rappeler dans une fermeture sans `self.`.
+- La CI annote les erreurs de compilation (`::error::`) : lisibles sans compte via
+  `https://api.github.com/repos/Vifi31/Phototheque_IOS/check-runs/<id>/annotations`.
+- Heredocs bash multiples dans une même commande : fragiles avec ces fichiers (apostrophes) ; écrire les fichiers
+  avec l'outil Write / Edit.
