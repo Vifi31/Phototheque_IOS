@@ -1,5 +1,53 @@
 # Journal des versions — Photothèque pour iOS
 
+## [0.5.0] — 2026-11-25
+
+Assistant local, sauvegardes chiffrées, métadonnées, variantes : reste des fonctions de la Photothèque de bureau qui ont un sens sur iOS.
+
+### Ajouté
+
+- **Sauvegardes** : chiffrement AES-256-GCM (clé dérivée du mot de passe par PBKDF2-HMAC-SHA256, 200 000 itérations, blocs authentifiés :
+  un bloc déplacé, retiré ou une archive tronquée sont détectés), mot de passe gardé dans le trousseau de l'appareil ; planification
+  (rappel ou sauvegarde automatique à l'ouverture), rotation des archives, copies vers des dossiers choisis dans Fichiers (iCloud Drive,
+  disque, serveur), alertes (jamais sauvegardé, sauvegarde ancienne, photos non couvertes), **test de restauration** dans un catalogue
+  temporaire (la seule preuve qu'une archive est utilisable), **restauration sélective** (métadonnées, mots-clés, collections, retouches,
+  albums, photos absentes), verrouillage par Face ID / code de l'appareil.
+- **Assistant IA local** (Vision d'Apple, sur l'appareil, aucune image n'en sort) : étiquettes des images, suggestions de mots-clés à
+  valider une par une, recherche par description (français ou anglais), événements, lieux, photos proches.
+- **Métadonnées** : modification en masse avec aperçu avant / après et annulation d'un geste (titre à modèle, légende, lieu, note,
+  étiquette, mots-clés, décalage de date), annexes XMP (écriture dans Metadonnees/, lecture, priorité catalogue / annexe).
+- **Variantes** (photo de référence et ses variantes, masquées par défaut), **catégories de mots-clés**, critère « sauvegarde »,
+  photos **récemment vues**, **comparaison** de 2 à 4 photos, raccourcis clavier de la visionneuse (iPad : 0-5 notes, flèches, I).
+- Tableau de bord exportable en PDF.
+
+### Modifié
+
+- Schéma de la base : version 4 (migrations 1 → 4 testées sur des bases des versions précédentes).
+- Les sauvegardes emportent aussi retouches, albums, catégories et variantes (archives plus anciennes toujours lisibles).
+
+## [0.4.0] — 2026-11-25
+
+### Ajouté
+
+- **Albums** : formats (A4, carrés, 20 × 30…, personnalisé), 12 gabarits identiques à ceux de la version de bureau (dont 4 doubles pages),
+  pages, recadrage manuel (même calcul que le bureau), glisser-déposer entre cadres, titres et légendes, modèles graphiques,
+  annuler / rétablir, remplissage automatique, contrôles avant impression (résolution effective, photos manquantes, doubles pages mal
+  placées), **export PDF** (impression 300 ppp / écran 150 ppp, fond perdu 3 mm, pages ou planches), **projet `.album.json`
+  échangeable avec la version de bureau** (photos retrouvées par empreinte SHA-256).
+- **Documents PDF** : planches-contact, fiches détaillées, catalogues thématiques (regroupement par année, mois, mot-clé, lieu, appareil,
+  note, sommaire), portfolios.
+
+## [0.3.0] — 2026-11-25
+
+### Ajouté
+
+- **Retouche non destructive** : exposition, luminosité, contraste, hautes lumières, ombres, température, teinte, vibrance, saturation,
+  netteté, bruit, courbe de tonalité (éditeur de points), noir et blanc, sépia, rotation, miroir, redressement, recadrage ; 9
+  préréglages ; plusieurs versions par photo, version par défaut affichée partout ; annuler / rétablir (50 étapes) ; comparaison avec
+  l'original. L'original n'est jamais modifié.
+- **Exports** : JPEG, PNG, HEIC ; qualité ; taille ou **tirage aux dimensions physiques** (10 × 15 … 30 × 45 cm, définition réglable) ;
+  retouches ; métadonnées (conserver, sans position GPS, aucune) ; filigrane ; profil sRGB / Display P3 ; modèle de nom ; jamais d'écrasement.
+
 ## [0.2.0] — 2026-11-25
 
 ### Ajouté

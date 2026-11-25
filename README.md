@@ -11,13 +11,20 @@ Tout reste sur l'appareil : aucun compte, aucun serveur.
 - **Recherche** insensible aux accents + filtres (année, note, étiquette, mot-clé, appareil, GPS, manques).
 - **Collections** et recherches enregistrées.
 - **Photos semblables** (empreinte visuelle).
-- **Sauvegardes** ZIP vérifiables (CRC + SHA-256), restauration par fusion avec sauvegarde de sécurité ;
-  catalogue CSV.
+- **Filtres** à choix multiples, critères **ET / OU**, **tableau de bord** et **rapports** (CSV, PDF).
+- **Retouche non destructive** (versions, courbe, préréglages) et **exports** (taille ou tirage, filigrane, profil, métadonnées).
+- **Albums** à gabarits (doubles pages, recadrage, annuler), **export PDF**, projet échangeable avec la version de bureau ;
+  planches-contact, fiches, catalogues thématiques, portfolios.
+- **Sauvegardes** ZIP vérifiables, **chiffrées** (AES-256), planifiées, copiées hors de l'appareil, test de restauration,
+  restauration sélective, verrouillage Face ID.
+- **Assistant IA local** (Vision, sur l'appareil) : mots-clés suggérés à valider, recherche par description, événements.
+- **Métadonnées** en masse (aperçu, annulation), annexes XMP, variantes, catégories de mots-clés.
+- **À propos** : version et recherche de mise à jour sur GitHub.
 
 ## Documentation
 
 - [Compatibilité iOS](docs/COMPATIBILITE.md) — pourquoi la version de bureau ne tourne pas sur iOS,
-  ce que couvre la version 0.1.0, ce qui a été vérifié.
+  ce que couvre la version 0.5.0, ce qui a été vérifié.
 - [Guide d'installation pour débutants (Word)](docs/Guide-installation-iOS.docx) — pas à pas, sans connaissance technique.
 - [Installation](docs/INSTALLATION-IOS.md) — depuis Windows sans Mac, avec Xcode, ou TestFlight / App Store.
 - [Journal des versions](CHANGELOG.md).
@@ -26,8 +33,9 @@ Tout reste sur l'appareil : aucun compte, aucun serveur.
 
 ```
 Core/                     paquet Swift « PhotothequeCore » (sans interface, testable sous Linux)
-  Sources/PhotothequeCore SQLite, schéma, catalogue, mots-clés, recherche, collections,
-                          doublons, SHA-256 / CRC-32 / dHash, ZIP, sauvegardes, CSV
+  Sources/PhotothequeCore SQLite, schéma, catalogue, mots-clés, recherche, collections, doublons, variantes,
+                          retouches, exports, albums, documents, tableau de bord, rapports, métadonnées, XMP, IA,
+                          SHA-256 / CRC-32 / dHash, ZIP, sauvegardes chiffrées, mise à jour
   Sources/CSQLite         accès à libsqlite3 sous Linux uniquement
   Tests/                  tests XCTest
 App/                      application SwiftUI (iOS) : vues, import, ImageIO, cache des vignettes

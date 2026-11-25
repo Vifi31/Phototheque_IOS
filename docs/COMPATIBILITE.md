@@ -42,55 +42,50 @@ Elle reste pourtant inutilisable sur iPhone :
 C'est pourquoi une **application iOS autonome** a été écrite, à la demande de
 l'utilisateur. Elle ne dépend pas d'un ordinateur.
 
-## 3. Ce que fait la version iOS 0.1.0
+## 3. Ce que fait la version iOS 0.5.0
 
-Le cœur (`Core/`, Swift pur + SQLite) reprend les règles de la version de bureau :
-
-- import sans jamais toucher à l'original ;
-- doublons exacts par SHA-256 ;
-- noms uniques ;
-- recherche insensible à la casse et aux accents (FTS5 `remove_diacritics 2`, avec repli `LIKE`) ;
-- mots-clés hiérarchiques avec synonymes ;
-- sauvegarde de sécurité avant toute restauration.
-
-Les tableaux ci-dessous classent les domaines de la version de bureau selon
-leur état dans la version iOS.
+Le cœur (`Core/`, Swift pur + SQLite) reprend les règles de la version de bureau (0.37.0) : import sans jamais toucher à l'original,
+doublons exacts par SHA-256, recherche insensible aux accents, mots-clés hiérarchiques, sauvegarde de sécurité avant restauration.
+Les tableaux classent les domaines de la version de bureau selon leur état dans la version iOS.
 
 ### Présents
 
-| Domaine (bureau) | iOS 0.1.0 |
+| Domaine (bureau) | iOS 0.5.0 |
 | --- | --- |
-| Catalogue SQLite, migrations, intégrité | Présent : schéma versionné (`user_version`), contrôle `integrity_check` et clés étrangères. |
-| Import, doublons exacts, noms uniques | Présent : depuis Photos (fichier d'origine, `preferredItemEncoding: .current`) et Fichiers ; re-sélection d'une photo déjà importée reconnue. |
-| Vignettes en cache régénérable | Présent : `Library/Caches/Vignettes`, vidable depuis les Réglages. |
-| Métadonnées EXIF / IPTC / GPS à l'import | Présent : date (avec décalage horaire EXIF), appareil, objectif, GPS, titre, légende, mots-clés, note IPTC. |
-| Notes, étiquettes de couleur | Présent : mêmes numéros d'étiquette que sur le bureau. |
-| Mots-clés hiérarchiques, synonymes | Présent : création par chemin « Lieux/France/Paris », déplacement (cycles refusés), fusion, suppression (les enfants remontent). |
-| Doublons de vocabulaire | Présent : regroupés, fusion en un geste. |
-| Recherche plein texte et critères | Présent : texte, année, note, étiquette, mot-clé (avec ou sans sous-mots-clés), appareil, GPS, manques (mot-clé, titre, lieu, date), tri. |
-| Collections et recherches enregistrées | Présent : la recherche enregistrée se recalcule à chaque ouverture. |
-| Photos semblables (dHash) | Présent : tolérance réglable, chaîne de ressemblance, jamais de suppression automatique. |
-| Visionneuse | Présent : balayage, zoom au pincement (8×) et au double toucher, fiche complète, lien vers Plans. |
-| Sauvegarde / vérification / restauration | Présent : archive ZIP du catalogue seul ou complète, avec contrôle CRC + SHA-256 de chaque photo. La restauration fusionne, ne supprime rien et fait d'abord une sauvegarde de sécurité. |
-| Catalogue CSV | Présent : séparateur « ; », UTF-8 avec BOM. |
-| Journal | Présent. |
-| Partage, export de l'original | Présent : feuille de partage (Enregistrer dans Photos, AirDrop, Mail…). |
+| Catalogue SQLite, migrations, intégrité | Schéma versionné (version 4), migrations testées depuis les versions 1 à 3, contrôle d'intégrité. |
+| Import, doublons exacts, noms uniques | Depuis Photos (fichier d'origine) et Fichiers ; re-sélection reconnue. |
+| Métadonnées EXIF / IPTC / GPS | Lues à l'import (ImageIO). |
+| Notes, étiquettes, titre, légende, lieu | Oui, modification unitaire et **en masse avec aperçu et annulation**. |
+| Mots-clés hiérarchiques, synonymes, catégories, doublons de vocabulaire | Oui. |
+| Recherche et filtres | Texte, années / appareils / formats / mots-clés **à choix multiples**, note, étiquette, GPS, lieu, objectif, orientation, manques, catégorie, état de sauvegarde, description (IA), **ET / OU**. |
+| Collections et recherches enregistrées | Oui (les recherches de la version 0.1 restent lisibles). |
+| Photos semblables, variantes, référence | dHash, variantes masquées par défaut, jamais de suppression automatique. |
+| Retouche non destructive | Réglages de lumière, couleur, détail, courbe, géométrie ; versions, annuler / rétablir. RAW : sur l'aperçu fourni par iOS. |
+| Exports | JPEG / PNG / HEIC, taille ou tirage physique, filigrane, profil, métadonnées, noms. |
+| Albums, doubles pages, recadrage, annuler | Oui ; **PDF** (impression, écran, fond perdu, planches) ; projet `.album.json` **échangeable avec le bureau**. |
+| Planches-contact, fiches, catalogues, portfolios | PDF. |
+| Rapports | Inventaire, fichiers manquants, intégrité, sauvegardes, photos à documenter (CSV, PDF). |
+| Tableau de bord | Chiffres, graphiques, répartitions cliquables, manques, volumes ; CSV et PDF. |
+| Sauvegardes | ZIP vérifiables, **chiffrées AES-256**, planifiées, rotation, copies vers Fichiers, alertes, **test de restauration**, **restauration sélective**. |
+| Verrouillage | Face ID / code de l'appareil. |
+| Annexes XMP | Écriture dans `Metadonnees/`, lecture, priorité catalogue / annexe. |
+| Assistant IA local | Vision (sur l'appareil) : suggestions à valider, recherche par description, événements, lieux, photos proches. |
+| Navigation | Tailles de vignettes, zoom, récemment vues, comparaison, raccourcis clavier (iPad). |
+| À propos, mise à jour | Version, recherche de mise à jour sur GitHub, téléchargement de l'`.ipa` vérifié par SHA-256 (l'installation reste à faire par Sideloadly / AltStore / TestFlight). |
 
-### Absents de la version 0.1.0
+### Impossibles ou différents sur iOS
 
-| Domaine (bureau) | Ce qui manque |
+| Domaine (bureau) | Pourquoi / équivalent |
 | --- | --- |
-| Tableau de bord | Seulement les chiffres clés et les manques, dans les Réglages. Pas de graphiques. |
-| Retouche non destructive | Absente. |
-| Exports avec redimensionnement, filigrane ou profils | Absents. |
-| Albums, planches-contact, catalogues, portfolios, rapports PDF | Absents. |
-| Variantes, référence de groupe | Absentes. |
-| Supports de stockage, indexation sans copie | Impossibles sous iOS (bac à sable). |
-| Sauvegardes programmées, destinations multiples, chiffrement | Absents. La copie hors de l'appareil passe par le bouton Partager (iCloud Drive, ordinateur, disque). |
-| Verrouillage par mot de passe | Absent. Le code de l'iPhone et Face ID protègent l'appareil. |
-| Assistant IA | Absent. |
-| Écriture d'annexes XMP | Absente. |
-| Échange de catalogue avec la version de bureau | Absent : les formats de sauvegarde diffèrent. Le CSV est lisible des deux côtés. |
+| Supports de stockage, indexation sans copie de dossiers | Le bac à sable d'iOS interdit de parcourir le disque. → Import par copie. |
+| Cartes mémoire, clés USB, téléphones branchés (détection) | Pas de lecteurs sous iOS : l'app Fichiers et le sélecteur de Photos les remplacent. |
+| Installateur, signature Ed25519, mise à jour automatique | Une app iOS est signée par Apple et s'installe par Xcode, TestFlight, l'App Store ou chargement latéral. |
+| Sauvegarde programmée en arrière-plan | iOS n'offre pas de tâche planifiée fiable : rappel ou sauvegarde automatique à l'ouverture. |
+| Ouvrir dans un logiciel externe | Feuille de partage d'iOS. |
+| Moteurs d'IA externes sous licence | Remplacés par Vision (intégré à iOS). |
+| Échange direct du catalogue | Les formats de sauvegarde diffèrent. Les **albums** s'échangent (projet `.album.json`), le **CSV** est lisible des deux côtés. |
+| Courbes de tonalité en gamut large, profils ICC de sortie personnalisés | Profils sRGB et Display P3 seulement. |
+| Bruit chromatique distinct, hautes lumières positives | Approximés par le moteur CoreImage (limite indiquée). |
 
 ## 4. Matériel et versions
 
@@ -102,7 +97,7 @@ leur état dans la version iOS.
 
 | Vérification | Moyen | Résultat |
 | --- | --- | --- |
-| Cœur Swift | `scripts/test-wsl.sh` sous Windows + WSL (Ubuntu 26.04, Swift 6.4.2). Testé avec l'en-tête SQLite du système et avec les déclarations intégrées. | 25 tests réussis. |
+| Cœur Swift | `scripts/test-wsl.sh` sous Windows + WSL (Ubuntu 26.04, Swift 6.4.2). | 97 tests réussis. |
 | Cœur Swift sur la plateforme Apple | CI GitHub (macOS : CryptoKit, SQLite du système). | Voir la dernière exécution de la CI. |
 | Compilation de l'app iOS | CI GitHub : Xcode, compilation simulateur et iPhone. | Voir la dernière exécution de la CI. |
 | Lancement réel | CI GitHub, simulateur iPhone : import automatique de 3 photos d'essai, puis contrôle dans la base (métadonnées, empreintes, vignettes) et contrôle que l'app tourne encore. | Voir la dernière exécution de la CI. |

@@ -111,7 +111,7 @@ public struct ArchiveCheck: Equatable, Sendable {
 }
 
 extension Catalog {
-    public static var appVersion = "0.2.0"
+    public static var appVersion = "0.5.0"
 
     private func keywordPathList(_ id: Int64) throws -> [String] {
         var names: [String] = []
