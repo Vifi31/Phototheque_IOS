@@ -104,6 +104,17 @@ extension Catalog {
         try refreshSearchText(keyword: id)
     }
 
+    /// Catégorie d'un mot-clé (vide : aucune).
+    public func setCategory(_ id: Int64, _ category: String) throws {
+        try db.run("UPDATE keywords SET category = ? WHERE id = ?", [.text(category.trimmingCharacters(in: .whitespacesAndNewlines)), .int(id)])
+    }
+
+    /// Catégories utilisées et nombre de mots-clés de chacune.
+    public func keywordCategories() throws -> [(name: String, count: Int)] {
+        try db.query("SELECT category, COUNT(*) AS n FROM keywords WHERE category <> '' GROUP BY category ORDER BY category COLLATE NOCASE")
+            .map { ($0.string("category") ?? "", $0.int("n") ?? 0) }
+    }
+
     /// Supprime le mot-clé ; ses sous-mots-clés remontent d'un niveau. Les photos ne sont pas touchées.
     public func deleteKeyword(_ id: Int64) throws {
         guard let k = try keyword(id) else { return }

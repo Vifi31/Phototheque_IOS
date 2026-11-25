@@ -2,7 +2,7 @@ import Foundation
 
 /// Schéma de la base et migrations numérotées (`PRAGMA user_version`).
 public enum Schema {
-    public static let version = 3
+    public static let version = 4
 
     static let v1 = """
     CREATE TABLE photos (
@@ -113,6 +113,38 @@ public enum Schema {
     CREATE INDEX album_pages_album ON album_pages(album_id, position);
     """
 
+    /// Version 4 : catégories de mots-clés, variantes, lots de métadonnées annulables, étiquettes et suggestions de l'IA locale.
+    static let v4 = """
+    ALTER TABLE keywords ADD COLUMN category TEXT NOT NULL DEFAULT '';
+    ALTER TABLE photos ADD COLUMN variant_of INTEGER REFERENCES photos(id) ON DELETE SET NULL;
+    CREATE INDEX photos_variant ON photos(variant_of);
+    CREATE TABLE meta_batches (
+      id INTEGER PRIMARY KEY,
+      at TEXT NOT NULL,
+      summary TEXT NOT NULL,
+      undone INTEGER NOT NULL DEFAULT 0,
+      data TEXT NOT NULL
+    );
+    CREATE TABLE ai_labels (
+      photo_id INTEGER NOT NULL REFERENCES photos(id) ON DELETE CASCADE,
+      label TEXT NOT NULL,
+      confidence REAL NOT NULL,
+      PRIMARY KEY (photo_id, label)
+    );
+    CREATE TABLE ai_suggestions (
+      photo_id INTEGER NOT NULL REFERENCES photos(id) ON DELETE CASCADE,
+      keyword TEXT NOT NULL,
+      confidence REAL NOT NULL,
+      status TEXT NOT NULL DEFAULT 'pending',
+      PRIMARY KEY (photo_id, keyword)
+    );
+    CREATE TABLE ai_prints (
+      photo_id INTEGER PRIMARY KEY REFERENCES photos(id) ON DELETE CASCADE,
+      print BLOB NOT NULL,
+      engine TEXT NOT NULL
+    );
+    """
+
     /// Index plein texte (FTS5) tenu à jour par déclencheurs. Absent si le SQLite n'a pas FTS5.
     static let fts = """
     CREATE VIRTUAL TABLE photos_fts USING fts5(search_text, content='photos', content_rowid='id', tokenize='unicode61 remove_diacritics 2');
@@ -152,6 +184,12 @@ public enum Schema {
             try db.transaction {
                 try db.execute(v3)
                 try db.execute("PRAGMA user_version = 3")
+            }
+        }
+        if current < 4 {
+            try db.transaction {
+                try db.execute(v4)
+                try db.execute("PRAGMA user_version = 4")
             }
         }
         return try db.first("SELECT name FROM sqlite_master WHERE name = 'photos_fts'") != nil

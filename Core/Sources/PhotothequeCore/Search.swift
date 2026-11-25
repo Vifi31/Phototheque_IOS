@@ -52,6 +52,12 @@ public enum Orientation: String, Codable, CaseIterable, Sendable {
     }
 }
 
+/// Affichage des variantes (photos désignées comme variantes d'une photo de référence, outil Doublons).
+public enum VariantMode: String, Codable, CaseIterable, Sendable {
+    case hide, show, only
+    public var label: String { switch self { case .hide: return "Masquer les variantes"; case .show: return "Afficher les variantes"; case .only: return "Seulement les variantes" } }
+}
+
 /// Critères de recherche. Sérialisables : une recherche enregistrée est une collection dynamique.
 ///
 /// Par défaut tous les critères doivent être remplis (ET). Avec `matchAny` (OU), une photo est retenue dès
@@ -73,6 +79,13 @@ public struct SearchCriteria: Codable, Equatable, Hashable, Sendable {
     public var place: String?
     public var lens: String?
     public var orientation: Orientation?
+    /// Mots-clés d'une catégorie (avec ceux rangés dessous).
+    public var keywordCategory: String?
+    /// Vrai : photos importées depuis la dernière sauvegarde (non protégées) ; faux : déjà couvertes par une sauvegarde.
+    public var uncoveredByBackup: Bool?
+    /// Description en mots (« montagne neige ») : cherchée dans les étiquettes de l'IA locale.
+    public var describe: String = ""
+    public var variants: VariantMode = .hide
     public var collectionId: Int64?
     public var matchAny: Bool = false
     public var sort: PhotoSort = .takenDesc
@@ -103,6 +116,7 @@ public struct SearchCriteria: Codable, Equatable, Hashable, Sendable {
     private enum CodingKeys: String, CodingKey {
         case text, years, cameras, formats, keywordIds, includeSubKeywords, minRating, color, hasGPS, hasKeywords, missing
         case place, lens, orientation, collectionId, matchAny, sort
+        case keywordCategory, uncoveredByBackup, describe, variants
         case year, camera, keywordId // anciens noms (une seule valeur)
     }
 
@@ -126,6 +140,10 @@ public struct SearchCriteria: Codable, Equatable, Hashable, Sendable {
         place = try c.decodeIfPresent(String.self, forKey: .place)
         lens = try c.decodeIfPresent(String.self, forKey: .lens)
         orientation = try c.decodeIfPresent(Orientation.self, forKey: .orientation)
+        keywordCategory = try c.decodeIfPresent(String.self, forKey: .keywordCategory)
+        uncoveredByBackup = try c.decodeIfPresent(Bool.self, forKey: .uncoveredByBackup)
+        describe = try c.decodeIfPresent(String.self, forKey: .describe) ?? ""
+        variants = try c.decodeIfPresent(VariantMode.self, forKey: .variants) ?? .hide
         collectionId = try c.decodeIfPresent(Int64.self, forKey: .collectionId)
         matchAny = try c.decodeIfPresent(Bool.self, forKey: .matchAny) ?? false
         sort = try c.decodeIfPresent(PhotoSort.self, forKey: .sort) ?? .takenDesc
@@ -147,6 +165,10 @@ public struct SearchCriteria: Codable, Equatable, Hashable, Sendable {
         try c.encodeIfPresent(place, forKey: .place)
         try c.encodeIfPresent(lens, forKey: .lens)
         try c.encodeIfPresent(orientation, forKey: .orientation)
+        try c.encodeIfPresent(keywordCategory, forKey: .keywordCategory)
+        try c.encodeIfPresent(uncoveredByBackup, forKey: .uncoveredByBackup)
+        try c.encode(describe, forKey: .describe)
+        try c.encode(variants, forKey: .variants)
         try c.encodeIfPresent(collectionId, forKey: .collectionId)
         try c.encode(matchAny, forKey: .matchAny)
         try c.encode(sort, forKey: .sort)
@@ -167,12 +189,14 @@ public struct SearchCriteria: Codable, Equatable, Hashable, Sendable {
         if let p = place, !p.isEmpty { n += 1 }
         if let l = lens, !l.isEmpty { n += 1 }
         if orientation != nil { n += 1 }
+        if let k = keywordCategory, !k.isEmpty { n += 1 }
+        if uncoveredByBackup != nil { n += 1 }
         return n
     }
 
     /// Vrai si aucun filtre n'est actif (le tri et le mode ET / OU ne comptent pas).
     public var isEmpty: Bool {
-        var c = self; c.sort = .takenDesc; c.matchAny = false
+        var c = self; c.sort = .takenDesc; c.matchAny = false; c.variants = .hide
         return c == SearchCriteria()
     }
 
@@ -245,6 +269,17 @@ extension Catalog {
         }
         if let l = c.lens, !l.isEmpty { filter("p.lens LIKE ? ESCAPE '\\'", [.text("%" + Catalog.likeEscaped(l) + "%")]) }
         if let pl = c.place, !pl.isEmpty { filter("p.place LIKE ? ESCAPE '\\'", [.text("%" + Catalog.likeEscaped(pl) + "%")]) }
+        if let cat = c.keywordCategory, !cat.isEmpty {
+            filter("""
+                p.id IN (SELECT pk.photo_id FROM photo_keywords pk WHERE pk.keyword_id IN (
+                  WITH RECURSIVE sub(id) AS (SELECT id FROM keywords WHERE category = ? COLLATE NOCASE UNION SELECT kk.id FROM keywords kk JOIN sub ON kk.parent_id = sub.id) SELECT id FROM sub))
+                """, [.text(cat)])
+        }
+        if let u = c.uncoveredByBackup {
+            if let last = lastBackupDate() {
+                filter(u ? "p.imported_at > ?" : "p.imported_at <= ?", [.text(ISODate.string(last))])
+            } else { filter(u ? "1" : "0") }      // aucune sauvegarde : toutes les photos sont non couvertes
+        }
         if let o = c.orientation {
             switch o {
             case .landscape: filter("p.width > p.height")
@@ -261,6 +296,17 @@ extension Catalog {
         case .place?: filter("p.place = '' AND p.latitude IS NULL")
         case .date?: filter("p.taken_at IS NULL")
         case nil: break
+        }
+        switch c.variants {
+        case .hide: must.append("p.variant_of IS NULL")
+        case .only: must.append("p.variant_of IS NOT NULL")
+        case .show: break
+        }
+        if !TextFold.tokens(c.describe).isEmpty {
+            for w in TextFold.tokens(c.describe) {
+                must.append("p.id IN (SELECT photo_id FROM ai_labels WHERE label LIKE ? ESCAPE '\\')")
+                mustParams.append(.text("%" + Catalog.likeEscaped(w) + "%"))
+            }
         }
         if let col = c.collectionId {
             if let coll = try? collection(col), coll.kind == .smart, let sub = coll.criteria {

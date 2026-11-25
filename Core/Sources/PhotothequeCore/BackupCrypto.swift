@@ -43,7 +43,8 @@ public enum BackupCrypto {
         if iterations > 1 {
             for _ in 2...iterations {
                 u = Data(HMAC<SHA256>.authenticationCode(for: u, using: key))
-                u.withUnsafeBytes { raw in for i in 0..<32 { t[i] ^= raw[i] } }
+                let bytes = [UInt8](u)
+                for i in 0..<32 { t[i] ^= bytes[i] }
             }
         }
         return SymmetricKey(data: Data(t))

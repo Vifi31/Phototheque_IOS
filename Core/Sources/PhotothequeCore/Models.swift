@@ -40,6 +40,8 @@ public struct Photo: Identifiable, Hashable, Codable, Sendable {
     public var source: String
     public var sourceId: String?
     public var dhash: String?
+    /// Photo de référence dont celle-ci est une variante (outil Doublons) ; `nil` : photo ordinaire ou référence.
+    public var variantOf: Int64?
 
     public var camera: String {
         let make = cameraMake.trimmingCharacters(in: .whitespaces)
@@ -75,6 +77,7 @@ public struct Photo: Identifiable, Hashable, Codable, Sendable {
         source = r.string("source") ?? ""
         sourceId = r.string("source_id")
         dhash = r.string("dhash")
+        variantOf = r.int64("variant_of")
     }
 }
 
@@ -112,6 +115,8 @@ public struct Keyword: Identifiable, Hashable, Codable, Sendable {
     public var parentId: Int64?
     public var synonyms: [String]
     public var photoCount: Int
+    /// Catégorie libre (Lieux, Personnes, Événements…) : sert à filtrer et à regrouper.
+    public var category: String
 
     init(row r: Row) {
         id = r.int64("id") ?? 0
@@ -119,6 +124,7 @@ public struct Keyword: Identifiable, Hashable, Codable, Sendable {
         parentId = r.int64("parent_id")
         synonyms = Keyword.splitSynonyms(r.string("synonyms") ?? "")
         photoCount = r.int("photo_count") ?? 0
+        category = r.string("category") ?? ""
     }
 
     static func splitSynonyms(_ s: String) -> [String] {
