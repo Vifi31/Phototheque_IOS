@@ -68,7 +68,6 @@ struct DuplicatesView: View {
     struct ViewerGroup: Identifiable { let id = UUID(); let photos: [Photo]; let index: Int }
 
     var body: some View {
-        NavigationStack {
             List {
                 Section {
                     VStack(alignment: .leading) {
@@ -119,7 +118,6 @@ struct DuplicatesView: View {
             } message: {
                 Text("La copie gardée par Photothèque et ses informations sont effacées. L'original dans Photos ou Fichiers n'est pas touché.")
             }
-        }
     }
 
     private func load() {

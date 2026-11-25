@@ -49,6 +49,8 @@ public struct BackupCollection: Codable, Sendable {
     public var kind: CollectionKind
     public var criteria: SearchCriteria?
     public var keywordPath: [String]?
+    /// Chemins des mots-clés d'une recherche enregistrée (plusieurs mots-clés depuis la version 0.2).
+    public var keywordPaths: [[String]]?
     public var photos: [String]
 }
 
@@ -74,7 +76,7 @@ public struct ArchiveCheck: Equatable, Sendable {
 }
 
 extension Catalog {
-    public static var appVersion = "0.1.0"
+    public static var appVersion = "0.2.0"
 
     private func keywordPathList(_ id: Int64) throws -> [String] {
         var names: [String] = []
@@ -104,9 +106,9 @@ extension Catalog {
                 WHERE cp.collection_id = ? ORDER BY cp.position
                 """, [.int(c.id)]).compactMap { $0.string("sha256") }
             var crit = c.criteria
-            var kp: [String]?
-            if let k = crit?.keywordId { kp = try path(k); crit?.keywordId = nil }
-            return BackupCollection(name: c.name, kind: c.kind, criteria: crit, keywordPath: kp, photos: shas)
+            var kps: [[String]]?
+            if let ids = crit?.keywordIds, !ids.isEmpty { kps = try ids.map { try path($0) }; crit?.keywordIds = [] }
+            return BackupCollection(name: c.name, kind: c.kind, criteria: crit, keywordPath: nil, keywordPaths: kps, photos: shas)
         }
         return BackupManifest(appVersion: Catalog.appVersion, createdAt: ISODate.now, includesPhotos: includePhotos,
                               photos: photos, keywords: kws, collections: colls)
@@ -246,7 +248,8 @@ extension Catalog {
         let existing = try collections()
         for c in m.collections {
             var crit = c.criteria
-            if let kp = c.keywordPath, !kp.isEmpty { crit?.keywordId = try keywordPath(kp.joined(separator: "/")) }
+            if let kps = c.keywordPaths, !kps.isEmpty { crit?.keywordIds = try kps.map { try keywordPath($0.joined(separator: "/")) } }
+            else if let kp = c.keywordPath, !kp.isEmpty { crit?.keywordIds = [try keywordPath(kp.joined(separator: "/"))] }
             if let same = existing.first(where: { $0.name == c.name && $0.kind == c.kind }) {
                 if c.kind == .static { try addToCollection(same.id, try c.photos.compactMap { try photo(sha256: $0)?.id }) }
                 continue

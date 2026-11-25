@@ -13,7 +13,7 @@ struct PhotothequeApp: App {
     }
 }
 
-enum AppTab: Hashable { case photos, keywords, collections, duplicates, settings }
+enum AppTab: Hashable { case photos, keywords, collections, analyse, settings }
 
 struct RootView: View {
     @EnvironmentObject var library: Library
@@ -33,9 +33,9 @@ struct RootView: View {
                     CollectionsView()
                         .tabItem { Label("Collections", systemImage: "rectangle.stack") }
                         .tag(AppTab.collections)
-                    DuplicatesView()
-                        .tabItem { Label("Doublons", systemImage: "square.on.square") }
-                        .tag(AppTab.duplicates)
+                    AnalyseView()
+                        .tabItem { Label("Analyse", systemImage: "chart.bar.xaxis") }
+                        .tag(AppTab.analyse)
                     SettingsView()
                         .tabItem { Label("Réglages", systemImage: "gearshape") }
                         .tag(AppTab.settings)

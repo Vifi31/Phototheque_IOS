@@ -1,5 +1,20 @@
 # Journal des versions — Photothèque pour iOS
 
+## [0.2.0] — 2026-11-25
+
+### Ajouté
+
+- **Filtres à choix multiples** : années, appareils, formats et mots-clés (ou logique entre les valeurs d'un même critère), plus objectif, lieu, orientation, avec ou sans mot-clé. Écran Filtres dédié, effectif en direct.
+- **Critères ET / OU** : toutes les conditions (par défaut) ou au moins une ; le texte saisi reste exigé. S'enregistre dans les recherches enregistrées ; les recherches de la version 0.1 restent lisibles.
+- **Tableau de bord** : chiffres, graphiques par année et par mois, répartitions cliquables (formats, appareils, objectifs, notes, orientation), manques, plus gros fichiers, export CSV, sur tout le catalogue ou sur les photos affichées.
+- **Rapports** : inventaire, fichiers manquants, intégrité, état des sauvegardes (alerte au-delà de 30 jours), photos à documenter ; export CSV et PDF.
+- **À propos** : version installée, recherche de mise à jour sur GitHub (à la demande), téléchargement de l'.ipa avec vérification SHA-256.
+- Onglet **Analyse** (tableau de bord, doublons, rapports).
+
+### Modifié
+
+- Les sauvegardes conservent les recherches enregistrées à plusieurs mots-clés (`keywordPaths`).
+
 ## [0.1.0] — 2026-11-08
 
 Première version : application iOS autonome (iPhone / iPad, iOS 17+).

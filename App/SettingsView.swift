@@ -70,8 +70,7 @@ struct SettingsView: View {
                 }
 
                 Section("À propos") {
-                    LabeledContent("Version", value: Catalog.appVersion)
-                    LabeledContent("SQLite", value: Database.libraryVersion + (library.catalog.hasFullText ? " (FTS5)" : ""))
+                    NavigationLink { AboutView() } label: { LabeledContent("Version et mise à jour", value: Catalog.appVersion) }
                     Text("Photothèque garde ses données dans l'appareil (aucun compte, aucun serveur). Les originaux importés depuis Photos ou Fichiers ne sont jamais modifiés.")
                         .font(.footnote).foregroundStyle(.secondary)
                 }

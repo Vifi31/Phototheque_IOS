@@ -17,6 +17,7 @@ struct LibraryView: View {
     @State private var keywordSheet = false
     @State private var collectionSheet = false
     @State private var confirmDelete = false
+    @State private var filtersSheet = false
 
     struct ViewerStart: Identifiable { let id: Int }
 
@@ -64,6 +65,7 @@ struct LibraryView: View {
             .fullScreenCover(item: $viewerIndex) { start in
                 PhotoViewer(photos: library.photos, startIndex: start.id)
             }
+            .sheet(isPresented: $filtersSheet) { FiltersSheet(initial: library.criteria) }
             .sheet(isPresented: $keywordSheet) {
                 KeywordPickerSheet(title: "Ajouter un mot-clé à \(selectedIds.count) photo(s)") { kid in
                     library.run { try library.catalog.assignKeyword(kid, to: selectedIds) }
@@ -132,13 +134,22 @@ struct LibraryView: View {
         let c = library.criteria
         var out: [(String, String, () -> Void)] = []
         if let id = c.collectionId { out.append(("coll", "Collection : " + ((try? library.catalog.collection(id))?.name ?? "?"), { library.criteria.collectionId = nil })) }
-        if let id = c.keywordId { out.append(("kw", "Mot-clé : " + ((try? library.catalog.keywordPathName(id)) ?? "?"), { library.criteria.keywordId = nil })) }
-        if let y = c.year { out.append(("year", "Année \(y)", { library.criteria.year = nil })) }
+        if !c.keywordIds.isEmpty {
+            let names = c.keywordIds.map { (try? library.catalog.keywordPathName($0)) ?? "?" }.joined(separator: " ou ")
+            out.append(("kw", "Mot-clé : " + names, { library.criteria.keywordIds = [] }))
+        }
+        if let h = c.hasKeywords { out.append(("hasKw", h ? "Avec mot-clé" : "Sans mot-clé", { library.criteria.hasKeywords = nil })) }
+        if !c.years.isEmpty { out.append(("year", "Année " + c.years.sorted().map(String.init).joined(separator: " ou "), { library.criteria.years = [] })) }
         if let r = c.minRating { out.append(("rating", "≥ \(r) ★", { library.criteria.minRating = nil })) }
         if let col = c.color { out.append(("color", "Étiquette \(ColorLabel(rawValue: col)?.name ?? "")", { library.criteria.color = nil })) }
-        if let cam = c.camera { out.append(("cam", cam, { library.criteria.camera = nil })) }
+        if !c.cameras.isEmpty { out.append(("cam", c.cameras.joined(separator: " ou "), { library.criteria.cameras = [] })) }
+        if !c.formats.isEmpty { out.append(("fmt", c.formats.joined(separator: " ou "), { library.criteria.formats = [] })) }
+        if let l = c.lens, !l.isEmpty { out.append(("lens", "Objectif : " + l, { library.criteria.lens = nil })) }
+        if let p = c.place, !p.isEmpty { out.append(("place", "Lieu : " + p, { library.criteria.place = nil })) }
+        if let o = c.orientation { out.append(("orient", o.label, { library.criteria.orientation = nil })) }
         if let g = c.hasGPS { out.append(("gps", g ? "Avec GPS" : "Sans GPS", { library.criteria.hasGPS = nil })) }
         if let m = c.missing { out.append(("missing", m.label, { library.criteria.missing = nil })) }
+        if c.matchAny && c.filterCount > 1 { out.append(("any", "Au moins un critère (OU)", { library.criteria.matchAny = false })) }
         return out
     }
 
@@ -206,37 +217,13 @@ struct LibraryView: View {
 
     private var filterMenu: some View {
         Menu {
+            Button { filtersSheet = true } label: { Label("Filtres…", systemImage: "slider.horizontal.3") }
             Picker("Tri", selection: $library.criteria.sort) {
                 ForEach(PhotoSort.allCases, id: \.self) { Text($0.label).tag($0) }
             }
-            Menu("Note minimale") {
-                Button("Toutes") { library.criteria.minRating = nil }
-                ForEach(1...5, id: \.self) { n in Button(String(repeating: "★", count: n) + " et plus") { library.criteria.minRating = n } }
-            }
-            Menu("Étiquette") {
-                Button("Toutes") { library.criteria.color = nil }
-                ForEach(ColorLabel.allCases.filter { $0 != .none }, id: \.self) { c in Button(c.name) { library.criteria.color = c.rawValue } }
-            }
-            Menu("Année") {
-                Button("Toutes") { library.criteria.year = nil }
-                ForEach((try? library.catalog.years()) ?? [], id: \.year) { y in
-                    Button("\(String(y.year)) (\(y.count))") { library.criteria.year = y.year }
-                }
-            }
-            Menu("Appareil") {
-                Button("Tous") { library.criteria.camera = nil }
-                ForEach((try? library.catalog.cameras()) ?? [], id: \.name) { c in
-                    Button("\(c.name) (\(c.count))") { library.criteria.camera = c.name }
-                }
-            }
-            Menu("Position GPS") {
-                Button("Indifférent") { library.criteria.hasGPS = nil }
-                Button("Avec position") { library.criteria.hasGPS = true }
-                Button("Sans position") { library.criteria.hasGPS = false }
-            }
-            Menu("Manques") {
-                Button("Aucun filtre") { library.criteria.missing = nil }
-                ForEach(MissingInfo.allCases, id: \.self) { m in Button(m.label) { library.criteria.missing = m } }
+            Picker("Critères", selection: $library.criteria.matchAny) {
+                Text("Tous les critères (ET)").tag(false)
+                Text("Au moins un critère (OU)").tag(true)
             }
             Divider()
             Menu("Taille des vignettes") {
