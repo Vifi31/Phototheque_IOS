@@ -323,7 +323,10 @@ struct CropSheet: View {
     var onDone: () -> Void
 
     @State private var ratio = "free"
-    @State private var x = 0.0, y = 0.0, w = 1.0, h = 1.0
+    @State private var x = 0.0
+    @State private var y = 0.0
+    @State private var w = 1.0
+    @State private var h = 1.0
 
     private var size: (Double, Double) {
         let (rw, rh) = EditGeometry.rotatedSize(photo.width ?? 4, photo.height ?? 3, rotate: params.rotate)

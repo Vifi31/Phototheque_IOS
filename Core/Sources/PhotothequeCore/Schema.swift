@@ -2,7 +2,7 @@ import Foundation
 
 /// Schéma de la base et migrations numérotées (`PRAGMA user_version`).
 public enum Schema {
-    public static let version = 2
+    public static let version = 3
 
     static let v1 = """
     CREATE TABLE photos (
@@ -90,6 +90,29 @@ public enum Schema {
     CREATE INDEX edits_photo ON edits(photo_id);
     """
 
+    /// Version 3 : albums et pages d'album (références aux photos, aucun original copié).
+    static let v3 = """
+    CREATE TABLE albums (
+      id INTEGER PRIMARY KEY,
+      name TEXT NOT NULL,
+      description TEXT NOT NULL DEFAULT '',
+      format TEXT NOT NULL DEFAULT 'a4-portrait',
+      width_mm REAL NOT NULL DEFAULT 210,
+      height_mm REAL NOT NULL DEFAULT 297,
+      created_at TEXT NOT NULL,
+      updated_at TEXT NOT NULL
+    );
+    CREATE TABLE album_pages (
+      id INTEGER PRIMARY KEY,
+      album_id INTEGER NOT NULL REFERENCES albums(id) ON DELETE CASCADE,
+      position INTEGER NOT NULL,
+      layout TEXT NOT NULL,
+      background TEXT NOT NULL DEFAULT '#ffffff',
+      data TEXT NOT NULL DEFAULT '{}'
+    );
+    CREATE INDEX album_pages_album ON album_pages(album_id, position);
+    """
+
     /// Index plein texte (FTS5) tenu à jour par déclencheurs. Absent si le SQLite n'a pas FTS5.
     static let fts = """
     CREATE VIRTUAL TABLE photos_fts USING fts5(search_text, content='photos', content_rowid='id', tokenize='unicode61 remove_diacritics 2');
@@ -123,6 +146,12 @@ public enum Schema {
             try db.transaction {
                 try db.execute(v2)
                 try db.execute("PRAGMA user_version = 2")
+            }
+        }
+        if current < 3 {
+            try db.transaction {
+                try db.execute(v3)
+                try db.execute("PRAGMA user_version = 3")
             }
         }
         return try db.first("SELECT name FROM sqlite_master WHERE name = 'photos_fts'") != nil

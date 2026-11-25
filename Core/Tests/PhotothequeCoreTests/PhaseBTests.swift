@@ -83,7 +83,7 @@ final class EditVersionsTests: CatalogTestCase {
     func photo() throws -> Photo { try add("a.jpg", "aaa") }
 
     func testSchemaIsV2AndMigratesFromV1() throws {
-        XCTAssertEqual(try cat.db.scalarInt("PRAGMA user_version"), 2)
+        XCTAssertEqual(try cat.db.scalarInt("PRAGMA user_version"), Schema.version)
         // Base de la version 0.1 (schéma 1) : la migration ajoute la table des retouches sans toucher aux photos.
         let path = dir.appendingPathComponent("ancienne.sqlite").path
         let db = try Database(path: path)
@@ -91,9 +91,10 @@ final class EditVersionsTests: CatalogTestCase {
         try db.execute("PRAGMA user_version = 1")
         try db.run("INSERT INTO photos(file_name, rel_path, sha256, size, imported_at) VALUES ('x.jpg', 'x.jpg', 'abc', 1, '2024-01-01T00:00:00Z')")
         try Schema.migrate(db, fullText: false)
-        XCTAssertEqual(try db.scalarInt("PRAGMA user_version"), 2)
+        XCTAssertEqual(try db.scalarInt("PRAGMA user_version"), Schema.version)
         XCTAssertEqual(try db.scalarInt("SELECT COUNT(*) FROM photos"), 1)
         XCTAssertEqual(try db.scalarInt("SELECT COUNT(*) FROM edits"), 0)
+        XCTAssertEqual(try db.scalarInt("SELECT COUNT(*) FROM albums"), 0)
         try Schema.migrate(db, fullText: false) // idempotente
     }
 

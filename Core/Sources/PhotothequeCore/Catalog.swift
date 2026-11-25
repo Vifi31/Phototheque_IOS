@@ -14,6 +14,8 @@ public final class Catalog {
     public let root: URL
     public let db: Database
     public let hasFullText: Bool
+    /// Piles d'annulation des albums (en mémoire).
+    let albumHistory = AlbumHistory()
 
     public var photosDir: URL { root.appendingPathComponent("Photos", isDirectory: true) }
     public var backupsDir: URL { root.appendingPathComponent("Sauvegardes", isDirectory: true) }

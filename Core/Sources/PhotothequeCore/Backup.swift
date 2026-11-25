@@ -14,6 +14,27 @@ public struct BackupManifest: Codable, Sendable {
     public var collections: [BackupCollection]
     /// Versions de retouche (depuis la version 0.3) : absentes des archives plus anciennes.
     public var edits: [BackupEdit]? = nil
+    /// Albums (depuis la version 0.4) : les photos sont désignées par leur empreinte SHA-256.
+    public var albums: [BackupAlbum]? = nil
+}
+
+public struct BackupAlbum: Codable, Sendable {
+    public var name: String
+    public var description: String
+    public var format: String
+    public var widthMM: Double
+    public var heightMM: Double
+    public var pages: [BackupAlbumPage]
+}
+
+public struct BackupAlbumPage: Codable, Sendable {
+    public var layout: String
+    public var background: String
+    public var title: String
+    public var caption: String
+    public var slots: [String?]
+    public var crops: [AlbumCrop?]
+    public var style: PageStyle
 }
 
 public struct BackupEdit: Codable, Sendable {
@@ -71,6 +92,7 @@ public struct RestoreReport: Equatable, Sendable {
     public var keywords = 0
     public var collectionsAdded = 0
     public var editsAdded = 0
+    public var albumsAdded = 0
     public var safetyBackup: String?
 }
 
@@ -124,8 +146,17 @@ extension Catalog {
         for p in all {
             for e in try editVersions(p.id) { edits.append(BackupEdit(sha256: p.sha256, name: e.name, params: e.params, isDefault: e.isDefault)) }
         }
+        var albumList: [BackupAlbum] = []
+        for a in try albums() {
+            let pgs = try pages(a.id).map { p -> BackupAlbumPage in
+                BackupAlbumPage(layout: p.layout, background: p.background, title: p.title, caption: p.caption,
+                                slots: try p.slots.map { id in try id.flatMap { try photo($0)?.sha256 } }, crops: p.crops, style: p.style)
+            }
+            albumList.append(BackupAlbum(name: a.name, description: a.description, format: a.format, widthMM: a.widthMM, heightMM: a.heightMM, pages: pgs))
+        }
         return BackupManifest(appVersion: Catalog.appVersion, createdAt: ISODate.now, includesPhotos: includePhotos,
-                              photos: photos, keywords: kws, collections: colls, edits: edits.isEmpty ? nil : edits)
+                              photos: photos, keywords: kws, collections: colls, edits: edits.isEmpty ? nil : edits,
+                              albums: albumList.isEmpty ? nil : albumList)
     }
 
     /// Crée une archive ZIP dans `Sauvegardes/` (ou à l'emplacement donné) : catalogue + photos si demandé.
@@ -284,7 +315,22 @@ extension Catalog {
             if e.isDefault && !have.isEmpty { try setDefaultEdit(v.id) }
             report.editsAdded += 1
         }
-        log("restauration","\(url.lastPathComponent) : \(report.photosAdded) ajoutée(s), \(report.photosUpdated) mise(s) à jour")
+                // Albums : recréés s'il n'y en a pas déjà un de même nom et de même nombre de pages.
+        let haveAlbums = try albums()
+        for ba in m.albums ?? [] {
+            if haveAlbums.contains(where: { $0.name == ba.name && $0.pageCount == ba.pages.count }) { continue }
+            let created = try createAlbum(name: ba.name, format: ba.format, widthMM: ba.widthMM, heightMM: ba.heightMM, description: ba.description)
+            for bp in ba.pages {
+                let pg = try addPage(created.id, layout: AlbumLayout.named(bp.layout) != nil ? bp.layout : "une")
+                try updatePage(pg.id) { p in
+                    p.slots = bp.slots.map { sha in sha.flatMap { try? photo(sha256: $0)?.id } }
+                    p.crops = bp.crops; p.background = bp.background; p.title = bp.title; p.caption = bp.caption; p.style = bp.style
+                }
+            }
+            albumHistory.forget(created.id)
+            report.albumsAdded += 1
+        }
+        log("restauration", "\(url.lastPathComponent) : \(report.photosAdded) ajoutée(s), \(report.photosUpdated) mise(s) à jour")
         return report
     }
 
