@@ -32,7 +32,7 @@ avec un compte gratuit conviennent pour essayer.
 Récupérez le fichier **`Phototheque-<version>-non-signee.ipa`** :
 
 - page **Releases** du dépôt
-  [Vifi31/Phototyh-que_IOS](https://github.com/Vifi31/Phototyh-que_IOS/releases) ;
+  [Vifi31/Phototheque_IOS](https://github.com/Vifi31/Phototheque_IOS/releases) ;
 - ou onglet **Actions**, dernière exécution réussie, artefact
   « Phototheque-iOS ».
 
@@ -76,8 +76,8 @@ Avec un identifiant gratuit :
 ## B. Avec un Mac et Xcode
 
 ```bash
-git clone https://github.com/Vifi31/Phototyh-que_IOS.git
-cd Phototyh-que_IOS
+git clone https://github.com/Vifi31/Phototheque_IOS.git
+cd Phototheque_IOS
 brew install xcodegen
 xcodegen generate
 open Phototheque.xcodeproj

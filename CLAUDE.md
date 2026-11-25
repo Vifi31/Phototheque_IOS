@@ -1,7 +1,7 @@
 # Photothèque pour iOS — notes de travail (CLAUDE.md)
 
 Application iOS autonome (SwiftUI, iOS 17+), déclinaison de `C:\DVP\Phototheque`
-(bureau, Node.js). Dépôt : https://github.com/Vifi31/Phototyh-que_IOS.
+(bureau, Node.js). Dépôt : https://github.com/Vifi31/Phototheque_IOS.
 
 ## Commandes
 
@@ -15,7 +15,7 @@ Depuis Windows : `wsl.exe -e bash /mnt/c/DVP/PhotothequeIOS/scripts/test-wsl.sh`
 L'app SwiftUI ne compile que sur macOS : elle est vérifiée par la CI GitHub
 (`.github/workflows/ci.yml` : compilation, lancement simulateur avec import de
 `ci/photos/`, contrôle de la base, `.ipa` non signée). Statut des étapes
-lisible sans compte : `https://api.github.com/repos/Vifi31/Phototyh-que_IOS/actions/runs`.
+lisible sans compte : `https://api.github.com/repos/Vifi31/Phototheque_IOS/actions/runs`.
 
 ## Architecture
 
