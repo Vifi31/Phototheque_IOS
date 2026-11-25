@@ -60,11 +60,20 @@ struct AlbumsView: View {
                 Button("Créer l'album") { if let d = importData { library.run { _ = try library.catalog.importProject(d) }; load() }; analysis = nil; importData = nil }
                 Button("Annuler", role: .cancel) { analysis = nil; importData = nil }
             } message: {
-                if let a = analysis {
-                    Text("« \(a.name) » : \(a.pages) page(s), \(a.matched) photo(s) retrouvée(s) dans ce catalogue" + (a.missing.isEmpty ? "." : ", \(a.missing.count) absente(s) (cadres laissés vides) : " + a.missing.prefix(4).joined(separator: ", ") + ".") + "\nUn nouvel album est créé ; aucun album existant n'est modifié.")
-                }
+                if let a = analysis { Text(importMessage(a)) }
             }
         }
+    }
+
+    private func importMessage(_ a: ProjectAnalysis) -> String {
+        var s = "« \(a.name) » : \(a.pages) page(s), \(a.matched) photo(s) retrouvée(s) dans ce catalogue"
+        if a.missing.isEmpty { s += "." }
+        else {
+            let names = a.missing.prefix(4).joined(separator: ", ")
+            s += ", \(a.missing.count) absente(s) (cadres laissés vides) : \(names)."
+        }
+        s += "\nUn nouvel album est créé ; aucun album existant n'est modifié."
+        return s
     }
 
     private func load() { albums = (try? library.catalog.albums()) ?? [] }
@@ -137,7 +146,7 @@ struct AlbumEditorView: View {
                     VStack(spacing: 12) {
                         AlbumPageCanvas(album: a, page: p, onTap: { frameRef = FrameRef(pageId: p.id, slot: $0) }, onSwap: { from, to in swap(from, to) })
                             .padding(.horizontal)
-                        Text(Catalog.folios(pages)[selected].label + " sur \(Catalog.folios(pages).last.map { $0.folio + $0.span - 1 } ?? 1)")
+                        Text(folioCaption())
                             .font(.caption).foregroundStyle(.secondary)
                         pageControls(p)
                     }.padding(.top, 8)
@@ -182,6 +191,23 @@ struct AlbumEditorView: View {
         .padding(.horizontal)
     }
 
+    private func folioCaption() -> String {
+        let f = Catalog.folios(pages)
+        guard f.indices.contains(selected) else { return "" }
+        var total = 1
+        if let last = f.last { total = last.folio + last.span - 1 }
+        return f[selected].label + " sur " + String(total)
+    }
+
+    private func shortFolio(_ i: Int) -> String {
+        let f = Catalog.folios(pages)
+        guard f.indices.contains(i) else { return "" }
+        var t = f[i].label
+        t = t.replacingOccurrences(of: "Pages ", with: "")
+        t = t.replacingOccurrences(of: "Page ", with: "")
+        return t
+    }
+
     /// Texte tapé : enregistré à chaque frappe sans multiplier les étapes d'annulation (le catalogue ignore un état inchangé).
     private func setText(_ id: Int64, _ edit: (inout AlbumPage) -> Void) {
         do { _ = try library.catalog.updatePage(id, edit) } catch { library.report(error) }
@@ -198,7 +224,7 @@ struct AlbumEditorView: View {
                         Button { selected = i } label: {
                             VStack(spacing: 2) {
                                 if let a = album { AlbumPageCanvas(album: a, page: p, thumbnail: true).frame(width: p.isSpread ? 110 : 60) }
-                                Text(Catalog.folios(pages)[i].label.replacingOccurrences(of: "Pages ", with: "").replacingOccurrences(of: "Page ", with: ""))
+                                Text(shortFolio(i))
                                     .font(.caption2).foregroundStyle(i == selected ? Color.accentColor : .secondary)
                             }
                             .padding(3)

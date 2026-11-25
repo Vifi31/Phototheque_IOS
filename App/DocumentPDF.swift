@@ -111,10 +111,20 @@ enum DocumentPDF {
                     var y = imgRect.maxY + 16
                     text(dp.photo.displayTitle, CGRect(x: margin, y: y, width: page.width - 2 * margin, height: 22), size: 16, bold: true); y += 28
                     let p = dp.photo
-                    var rows: [(String, String)] = [("Fichier", p.fileName), ("Légende", p.caption), ("Prise de vue", p.takenAt.map { Fmt.date($0) } ?? ""), ("Appareil", p.camera), ("Objectif", p.lens),
-                                                    ("Dimensions", p.width.map { "\($0) × \(p.height ?? 0) px" } ?? ""), ("Format", "\(p.format) · \(Fmt.bytes(p.size))"),
-                                                    ("Note", p.rating > 0 ? String(repeating: "★", count: p.rating) : ""), ("Étiquette", dp.colorName), ("Lieu", p.place),
-                                                    ("Position", p.latitude.flatMap { la in p.longitude.map { String(format: "%.5f, %.5f", la, $0) } } ?? ""), ("Mots-clés", dp.keywords)]
+                    var date = ""
+                    if let t = p.takenAt { date = Fmt.date(t) }
+                    var dims = ""
+                    if let w = p.width { dims = "\(w) × \(p.height ?? 0) px" }
+                    let format = p.format + " · " + Fmt.bytes(p.size)
+                    var stars = ""
+                    if p.rating > 0 { stars = String(repeating: "★", count: p.rating) }
+                    var position = ""
+                    if let la = p.latitude, let lo = p.longitude { position = String(format: "%.5f, %.5f", la, lo) }
+                    var rows: [(String, String)] = []
+                    rows.append(("Fichier", p.fileName)); rows.append(("Légende", p.caption)); rows.append(("Prise de vue", date))
+                    rows.append(("Appareil", p.camera)); rows.append(("Objectif", p.lens)); rows.append(("Dimensions", dims))
+                    rows.append(("Format", format)); rows.append(("Note", stars)); rows.append(("Étiquette", dp.colorName))
+                    rows.append(("Lieu", p.place)); rows.append(("Position", position)); rows.append(("Mots-clés", dp.keywords))
                     rows = rows.filter { !$0.1.isEmpty }
                     for (k, v) in rows {
                         if y > page.height - margin - 14 { break }

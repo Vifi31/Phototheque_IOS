@@ -68,6 +68,19 @@ struct PhotoViewer: View {
             }
         }
         .statusBarHidden(!chrome)
+        .background {
+            // Clavier (iPad) : 0 à 5 = note, flèches = photo précédente / suivante, I = informations.
+            ZStack {
+                ForEach(0...5, id: \.self) { n in
+                    Button("") { if let p = current { library.run { try library.catalog.setRating([p.id], n) } } }
+                        .keyboardShortcut(KeyEquivalent(Character(String(n))), modifiers: [])
+                }
+                Button("") { if index > 0 { index -= 1 } }.keyboardShortcut(.leftArrow, modifiers: [])
+                Button("") { if index < photos.count - 1 { index += 1 } }.keyboardShortcut(.rightArrow, modifiers: [])
+                Button("") { showInfo = true }.keyboardShortcut("i", modifiers: [])
+            }
+            .frame(width: 0, height: 0).opacity(0)
+        }
         .onChange(of: index) { _, _ in if let p = current { library.catalog.noteViewed(p.id) } }
         .onAppear { if let p = current { library.catalog.noteViewed(p.id) } }
         .fullScreenCover(item: $retouchePhoto) { RetoucheView(photo: $0) }
