@@ -67,11 +67,14 @@ public struct BackupPhoto: Codable, Sendable {
     public var source: String
     public var dhash: String?
     public var keywords: [[String]]
+    /// Empreinte de la photo de référence dont celle-ci est une variante (depuis la version 0.5).
+    public var variantOfSha: String? = nil
 }
 
 public struct BackupKeyword: Codable, Sendable {
     public var path: [String]
     public var synonyms: [String]
+    public var category: String? = nil
 }
 
 public struct BackupCollection: Codable, Sendable {
@@ -129,9 +132,10 @@ extension Catalog {
                         format: p.format, takenAt: p.takenAt, importedAt: p.importedAt, cameraMake: p.cameraMake,
                         cameraModel: p.cameraModel, lens: p.lens, latitude: p.latitude, longitude: p.longitude, place: p.place,
                         title: p.title, caption: p.caption, rating: p.rating, color: p.color, source: p.source, dhash: p.dhash,
-                        keywords: try keywordsOf(p.id).map { try path($0.id) })
+                        keywords: try keywordsOf(p.id).map { try path($0.id) },
+                        variantOfSha: try p.variantOf.flatMap { try photo($0)?.sha256 })
         }
-        let kws = try keywords().map { BackupKeyword(path: try path($0.id), synonyms: $0.synonyms) }
+        let kws = try keywords().map { BackupKeyword(path: try path($0.id), synonyms: $0.synonyms, category: $0.category.isEmpty ? nil : $0.category) }
         let colls = try collections().map { c -> BackupCollection in
             let shas = try db.query("""
                 SELECT p.sha256 FROM collection_photos cp JOIN photos p ON p.id = cp.photo_id
@@ -258,6 +262,7 @@ extension Catalog {
                 for s in k.synonyms where !syn.contains(where: { TextFold.fold($0) == TextFold.fold(s) }) { syn.append(s) }
                 try setSynonyms(id, syn)
             }
+            if let cat = k.category, !cat.isEmpty, let cur = try keyword(id), cur.category.isEmpty { try setCategory(id, cat) }
             report.keywords += 1
         }
 
@@ -290,6 +295,13 @@ extension Catalog {
                 }
                 try refreshSearchText([p.id])
             }
+        }
+
+        // Variantes : rétablies pour les photos qui n'en ont pas déjà une désignée.
+        if parts.contains(.metadata) {
+            for bp in m.photos { if let refSha = bp.variantOfSha, let v = try photo(sha256: bp.sha256), v.variantOf == nil, let r = try photo(sha256: refSha), r.id != v.id, r.variantOf == nil {
+                try db.run("UPDATE photos SET variant_of = ? WHERE id = ?", [.int(r.id), .int(v.id)])
+            } }
         }
 
         let existing = try collections()

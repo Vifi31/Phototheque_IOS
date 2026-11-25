@@ -35,6 +35,23 @@ public struct Dashboard: Sendable {
     public var gaps: [GapItem] = []
     public var largest: [Photo] = []
 
+    /// Le tableau de bord sous forme de rapport tabulaire (CSV, PDF).
+    public func table(title: String = "Tableau de bord", subtitle: String = "") -> ReportTable {
+        var rows: [[String]] = [["Total", "Photos", String(photos), Dashboard.human(bytes)]]
+        func add(_ name: String, _ items: [DistributionItem]) { for i in items { rows.append([name, i.label, String(i.count), Dashboard.human(i.bytes)]) } }
+        add("Année", byYear); add("Mois", byMonth); add("Format", byFormat); add("Appareil", byCamera); add("Objectif", byLens)
+        add("Note", byRating); add("Étiquette", byColor); add("Orientation", byOrientation)
+        for g in gaps { rows.append(["Manque", g.label, String(g.count), ""]) }
+        return ReportTable(title: title, subtitle: subtitle.isEmpty ? "\(photos) photo(s) — \(Dashboard.human(bytes))" : subtitle, headers: ["Rubrique", "Libellé", "Photos", "Volume"], rows: rows)
+    }
+
+    static func human(_ b: Int64) -> String {
+        let units = ["o", "Ko", "Mo", "Go", "To"]
+        var v = Double(b), i = 0
+        while v >= 1024 && i < units.count - 1 { v /= 1024; i += 1 }
+        return i == 0 ? "\(b) o" : String(format: "%.1f %@", v, units[i]).replacingOccurrences(of: ".", with: ",")
+    }
+
     /// Tableau CSV (séparateur « ; », UTF-8 avec BOM) : une ligne par barre de chaque rubrique.
     public func csv() -> String {
         var rows = ["Rubrique;Libellé;Photos;Octets"]

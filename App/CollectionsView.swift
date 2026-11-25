@@ -96,6 +96,11 @@ struct DuplicatesView: View {
                                         Text(p.fileName).font(.caption2).lineLimit(1)
                                         Text([p.width.map { "\($0)×\(p.height ?? 0)" }, Fmt.bytes(p.size)].compactMap { $0 }.joined(separator: " · "))
                                             .font(.caption2).foregroundStyle(.secondary)
+                                        Button {
+                                            library.run { try library.catalog.setReference(p.id, variants: g.photos.map(\.id).filter { $0 != p.id }) }
+                                            load()
+                                        } label: { Label(p.variantOf == nil ? "Référence" : "Référence", systemImage: "star") }
+                                            .font(.caption).buttonStyle(.borderless)
                                         Button(role: .destructive) { toDelete = p } label: { Label("Retirer", systemImage: "trash") }
                                             .font(.caption).buttonStyle(.borderless)
                                     }

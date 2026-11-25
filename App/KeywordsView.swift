@@ -76,6 +76,7 @@ struct KeywordsView: View {
                 VStack(alignment: .leading, spacing: 2) {
                     Text(k.name).foregroundStyle(.primary)
                     if !k.synonyms.isEmpty { Text(k.synonyms.joined(separator: ", ")).font(.caption).foregroundStyle(.secondary) }
+                    if !k.category.isEmpty { Text(k.category).font(.caption2).foregroundStyle(Color.accentColor) }
                 }
                 Spacer()
                 Text("\(k.photoCount)").foregroundStyle(.secondary).monospacedDigit()
@@ -97,6 +98,11 @@ struct KeywordsView: View {
                     library.run { try library.catalog.setSynonyms(k.id, text.components(separatedBy: CharacterSet(charactersIn: ";,"))) }
                 }
             } label: { Label("Synonymes…", systemImage: "text.badge.plus") }
+            Button {
+                prompt = TextPrompt(title: "Catégorie de « \(k.name) »", message: "Lieux, Personnes, Événements… Sert à filtrer et à regrouper.", initial: k.category, placeholder: "Catégorie") { text in
+                    library.run { try library.catalog.setCategory(k.id, text) }
+                }
+            } label: { Label("Catégorie…", systemImage: "folder") }
             Button { moving = k } label: { Label("Déplacer…", systemImage: "arrow.turn.down.right") }
             Button(role: .destructive) { toDelete = k } label: { Label("Supprimer…", systemImage: "trash") }
         }

@@ -8,6 +8,7 @@ struct DashboardView: View {
     @State private var data: Dashboard?
     @State private var scoped = false
     @State private var csvURL: URL?
+    @State private var pdfURL: URL?
 
     var body: some View {
         List {
@@ -63,6 +64,8 @@ struct DashboardView: View {
                 Section {
                     Button { exportCSV(d) } label: { Label("Exporter en CSV", systemImage: "tablecells") }
                     if let csvURL { ShareLink(item: csvURL) { Label("Partager \(csvURL.lastPathComponent)", systemImage: "square.and.arrow.up") } }
+                    Button { exportPDF(d) } label: { Label("Exporter en PDF", systemImage: "doc.richtext") }
+                    if let pdfURL { ShareLink(item: pdfURL) { Label("Partager \(pdfURL.lastPathComponent)", systemImage: "square.and.arrow.up") } }
                 }
             }
         }
@@ -105,6 +108,12 @@ struct DashboardView: View {
 
     private func load() {
         data = try? library.catalog.dashboard(scoped ? library.criteria : SearchCriteria())
+    }
+
+    private func exportPDF(_ d: Dashboard) {
+        let f = DateFormatter(); f.dateFormat = "yyyy-MM-dd-HHmm"
+        let url = library.catalog.exportsDir.appendingPathComponent("Tableau-de-bord-\(f.string(from: Date())).pdf")
+        do { try PDFDocumentBuilder.table(d.table()).write(to: url); pdfURL = url } catch { library.report(error) }
     }
 
     private func exportCSV(_ d: Dashboard) {

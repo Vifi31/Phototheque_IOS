@@ -19,6 +19,9 @@ struct LibraryView: View {
     @State private var confirmDelete = false
     @State private var filtersSheet = false
     @State private var exportSheet = false
+    @State private var showRecents = false
+    @State private var bulkSheet = false
+    @State private var compareSheet = false
     @State private var retouchePhoto: Photo?
 
     struct ViewerStart: Identifiable { let id: Int }
@@ -69,6 +72,9 @@ struct LibraryView: View {
             }
             .sheet(isPresented: $filtersSheet) { FiltersSheet(initial: library.criteria) }
             .sheet(isPresented: $exportSheet) { ExportSheet(ids: selectedIds) }
+            .sheet(isPresented: $showRecents) { RecentsSheet() }
+            .sheet(isPresented: $bulkSheet) { BulkMetadataSheet(ids: selectedIds) }
+            .fullScreenCover(isPresented: $compareSheet) { CompareView(photos: library.photos.filter { selection.contains($0.id) }) }
             .fullScreenCover(item: $retouchePhoto) { RetoucheView(photo: $0) }
             .sheet(isPresented: $keywordSheet) {
                 KeywordPickerSheet(title: "Ajouter un mot-clé à \(selectedIds.count) photo(s)") { kid in
@@ -148,6 +154,10 @@ struct LibraryView: View {
         if let col = c.color { out.append(("color", "Étiquette \(ColorLabel(rawValue: col)?.name ?? "")", { library.criteria.color = nil })) }
         if !c.cameras.isEmpty { out.append(("cam", c.cameras.joined(separator: " ou "), { library.criteria.cameras = [] })) }
         if !c.formats.isEmpty { out.append(("fmt", c.formats.joined(separator: " ou "), { library.criteria.formats = [] })) }
+        if let k = c.keywordCategory, !k.isEmpty { out.append(("kwcat", "Catégorie : " + k, { library.criteria.keywordCategory = nil })) }
+        if let u = c.uncoveredByBackup { out.append(("bk", u ? "Pas encore sauvegardées" : "Déjà sauvegardées", { library.criteria.uncoveredByBackup = nil })) }
+        if !c.describe.isEmpty { out.append(("desc", "Contenu : " + c.describe, { library.criteria.describe = "" })) }
+        if c.variants != .hide { out.append(("var", c.variants.label, { library.criteria.variants = .hide })) }
         if let l = c.lens, !l.isEmpty { out.append(("lens", "Objectif : " + l, { library.criteria.lens = nil })) }
         if let p = c.place, !p.isEmpty { out.append(("place", "Lieu : " + p, { library.criteria.place = nil })) }
         if let o = c.orientation { out.append(("orient", o.label, { library.criteria.orientation = nil })) }
@@ -197,6 +207,9 @@ struct LibraryView: View {
                     }
                     Button { keywordSheet = true } label: { Label("Ajouter un mot-clé…", systemImage: "tag") }
                     Button { exportSheet = true } label: { Label("Exporter…", systemImage: "square.and.arrow.up.on.square") }
+                    Button { bulkSheet = true } label: { Label("Modifier en masse…", systemImage: "square.and.pencil") }
+                    if (2...4).contains(selection.count) { Button { compareSheet = true } label: { Label("Comparer", systemImage: "rectangle.split.2x1") } }
+                    Button { writeSidecars() } label: { Label("Écrire les annexes XMP", systemImage: "doc.badge.gearshape") }
                     if selection.count == 1, let p = library.photos.first(where: { selection.contains($0.id) }) {
                         Button { retouchePhoto = p } label: { Label("Retoucher…", systemImage: "slider.horizontal.3") }
                     }
@@ -229,6 +242,8 @@ struct LibraryView: View {
             Picker("Tri", selection: $library.criteria.sort) {
                 ForEach(PhotoSort.allCases, id: \.self) { Text($0.label).tag($0) }
             }
+            Picker("Variantes", selection: $library.criteria.variants) { ForEach(VariantMode.allCases, id: \.self) { Text($0.label).tag($0) } }
+            Button { showRecents = true } label: { Label("Récemment vues", systemImage: "clock") }
             Picker("Critères", selection: $library.criteria.matchAny) {
                 Text("Tous les critères (ET)").tag(false)
                 Text("Au moins un critère (OU)").tag(true)
@@ -263,6 +278,14 @@ struct LibraryView: View {
             selecting = true
             selection = [photo.id]
         } label: { Label("Choisir", systemImage: "checkmark.circle") }
+    }
+
+    /// Annexes XMP des photos choisies, dans Metadonnees/ (jamais à côté des originaux).
+    private func writeSidecars() {
+        do {
+            let urls = try library.catalog.writeSidecars(selectedIds)
+            library.inform("\(urls.count) annexe(s) XMP écrite(s) dans Fichiers › Sur mon iPhone › Photothèque › Metadonnees.")
+        } catch { library.report(error) }
     }
 
     private func toggle(_ id: Int64) {

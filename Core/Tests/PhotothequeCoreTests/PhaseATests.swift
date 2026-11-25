@@ -131,9 +131,6 @@ final class MultiCriteriaTests: CatalogTestCase {
     }
 }
 
-extension SearchCriteria {
-    func with(_ edit: (inout SearchCriteria) -> Void) -> SearchCriteria { var c = self; edit(&c); return c }
-}
 
 /// Tableau de bord et rapports.
 final class DashboardTests: CatalogTestCase {

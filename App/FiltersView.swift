@@ -11,6 +11,7 @@ struct FiltersSheet: View {
     @State private var cameras: [(name: String, count: Int)] = []
     @State private var formats: [(name: String, count: Int)] = []
     @State private var lenses: [(name: String, count: Int)] = []
+    @State private var categories: [(name: String, count: Int)] = []
     @State private var keywordRows: [KeywordRow] = []
 
     struct KeywordRow: Identifiable { let id: Int64; let name: String; let depth: Int; let count: Int }
@@ -104,6 +105,20 @@ struct FiltersSheet: View {
                             ForEach(lenses, id: \.name) { Text("\($0.name) (\($0.count))").tag($0.name) }
                         }
                     }
+                    if !categories.isEmpty {
+                        Picker("Catégorie de mot-clé", selection: Binding(get: { c.keywordCategory ?? "" }, set: { c.keywordCategory = $0.isEmpty ? nil : $0 })) {
+                            Text("Toutes").tag("")
+                            ForEach(categories, id: \.name) { Text("\($0.name) (\($0.count))").tag($0.name) }
+                        }
+                    }
+                    Picker("Sauvegarde", selection: Binding(get: { c.uncoveredByBackup == nil ? 0 : (c.uncoveredByBackup! ? 1 : 2) }, set: { c.uncoveredByBackup = $0 == 0 ? nil : ($0 == 1) })) {
+                        Text("Indifférent").tag(0); Text("Pas encore sauvegardées").tag(1); Text("Déjà sauvegardées").tag(2)
+                    }
+                    Picker("Variantes", selection: $c.variants) { ForEach(VariantMode.allCases, id: \.self) { Text($0.label).tag($0) } }
+                    HStack {
+                        Text("Contenu (IA)")
+                        TextField("montagne, neige…", text: $c.describe).multilineTextAlignment(.trailing).textInputAutocapitalization(.never)
+                    }
                     HStack {
                         Text("Lieu")
                         TextField("Ville, région, pays…", text: Binding(get: { c.place ?? "" }, set: { c.place = $0.isEmpty ? nil : $0 }))
@@ -155,6 +170,7 @@ struct FiltersSheet: View {
         cameras = (try? library.catalog.cameras()) ?? []
         formats = (try? library.catalog.formats()) ?? []
         lenses = (try? library.catalog.lenses()) ?? []
+        categories = (try? library.catalog.keywordCategories()) ?? []
         var rows: [KeywordRow] = []
         func walk(_ nodes: [KeywordNode], _ depth: Int) {
             for n in nodes {

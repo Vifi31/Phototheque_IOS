@@ -1,4 +1,5 @@
 import SwiftUI
+import UniformTypeIdentifiers
 import PhotothequeCore
 
 /// Visionneuse plein écran : balayage entre les photos, zoom (pincer, double toucher), informations.
@@ -67,6 +68,8 @@ struct PhotoViewer: View {
             }
         }
         .statusBarHidden(!chrome)
+        .onChange(of: index) { _, _ in if let p = current { library.catalog.noteViewed(p.id) } }
+        .onAppear { if let p = current { library.catalog.noteViewed(p.id) } }
         .fullScreenCover(item: $retouchePhoto) { RetoucheView(photo: $0) }
         .sheet(isPresented: Binding(get: { exportIds != nil }, set: { if !$0 { exportIds = nil } })) { ExportSheet(ids: exportIds ?? []) }
         .sheet(isPresented: $showInfo) {
@@ -133,6 +136,7 @@ struct PhotoInfoView: View {
     @State private var keywords: [Keyword] = []
     @State private var collections: [PhotoCollection] = []
     @State private var addKeyword = false
+    @State private var importXMP = false
 
     var body: some View {
         Form {
@@ -156,6 +160,12 @@ struct PhotoInfoView: View {
             }
             if !collections.isEmpty {
                 Section("Collections") { ForEach(collections) { Text($0.name) } }
+            }
+            Section("Annexe XMP") {
+                Button { importXMP = true } label: { Label("Lire une annexe XMP…", systemImage: "doc.badge.plus") }
+                Button {
+                    do { let u = try library.catalog.writeSidecars([photo.id]); library.inform("Annexe écrite : \(u.first?.lastPathComponent ?? "") (dossier Metadonnees).") } catch { library.report(error) }
+                } label: { Label("Écrire l'annexe XMP", systemImage: "square.and.arrow.up") }
             }
             Section("Prise de vue") {
                 LabeledContent("Date", value: Fmt.date(photo.takenAt))
@@ -183,6 +193,16 @@ struct PhotoInfoView: View {
         .toolbar { ToolbarItem(placement: .confirmationAction) { Button("OK") { save(); dismiss() } } }
         .onAppear(perform: load)
         .onDisappear(perform: save)
+        .fileImporter(isPresented: $importXMP, allowedContentTypes: [UTType(filenameExtension: "xmp") ?? .xml, .xml, .data]) { result in
+            guard case .success(let url) = result else { return }
+            let scoped = url.startAccessingSecurityScopedResource(); defer { if scoped { url.stopAccessingSecurityScopedResource() } }
+            do {
+                let text = try String(contentsOf: url, encoding: .utf8)
+                let changed = try library.catalog.applySidecar(text, to: photo.id)
+                library.run {}; load()
+                library.inform(changed.isEmpty ? "L'annexe n'apporte rien de nouveau (priorité : \(library.catalog.metadataPriority() == .catalog ? "catalogue" : "annexe"))." : "Appliqué : " + changed.joined(separator: ", ") + ".")
+            } catch { library.report(error) }
+        }
         .sheet(isPresented: $addKeyword) {
             KeywordPickerSheet(title: "Ajouter un mot-clé") { kid in change { try library.catalog.assignKeyword(kid, to: [photo.id]) } }
         }

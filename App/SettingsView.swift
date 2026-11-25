@@ -77,6 +77,15 @@ struct SettingsView: View {
                     Text(Biometrics.available ? "Photothèque se verrouille quand vous la quittez. Le code de l'appareil sert de secours." : "Aucun code ni Face ID n'est configuré sur cet appareil (Réglages iOS).")
                 }
 
+                Section {
+                    Picker("En cas de conflit", selection: Binding(get: { library.catalog.metadataPriority() }, set: { try? library.catalog.setMetadataPriority($0) })) {
+                        ForEach(MetadataPriority.allCases, id: \.self) { Text($0.label).tag($0) }
+                    }
+                    Button { writeAllSidecars() } label: { Label("Écrire les annexes XMP de toutes les photos", systemImage: "doc.badge.gearshape") }
+                } header: { Text("Annexes XMP") } footer: {
+                    Text("Une annexe XMP est un petit fichier (titre, légende, mots-clés, note) lisible par d'autres logiciels. Elles sont écrites dans Fichiers › Photothèque › Metadonnees, jamais à côté des originaux.")
+                }
+
                 Section("Exports") {
                     Button { exportCSV() } label: { Label("Catalogue CSV (photos affichées)", systemImage: "tablecells") }
                     if let csvURL {
@@ -156,6 +165,14 @@ struct SettingsView: View {
                 library.report(e)
             }
         }
+    }
+
+    private func writeAllSidecars() {
+        do {
+            let ids = try library.catalog.ids(SearchCriteria().with { $0.variants = .show })
+            let n = try library.catalog.writeSidecars(ids).count
+            library.inform("\(n) annexe(s) XMP écrite(s).")
+        } catch { library.report(error) }
     }
 
     private func exportCSV() {

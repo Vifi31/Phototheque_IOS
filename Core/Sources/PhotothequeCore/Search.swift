@@ -200,6 +200,9 @@ public struct SearchCriteria: Codable, Equatable, Hashable, Sendable {
         return c == SearchCriteria()
     }
 
+    /// Copie modifiée (écriture fluide : `criteria.with { $0.year = 2024 }`).
+    public func with(_ edit: (inout SearchCriteria) -> Void) -> SearchCriteria { var c = self; edit(&c); return c }
+
     public func encoded() -> String {
         (try? String(data: JSONEncoder().encode(self), encoding: .utf8)) ?? "{}"
     }
