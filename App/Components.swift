@@ -7,6 +7,8 @@ struct PhotoImage: View {
     let photo: Photo
     let maxPixel: Int
     var contentMode: ContentMode = .fill
+    /// Afficher la version retouchée par défaut (vrai) ou l'original.
+    var useEdit = true
 
     @State private var image: UIImage?
     @State private var failed = false
@@ -21,8 +23,9 @@ struct PhotoImage: View {
                 Rectangle().fill(Color.secondary.opacity(0.12))
             }
         }
-        .task(id: "\(photo.sha256)-\(maxPixel)") {
-            let img = await ImageCache.shared.image(for: library.url(photo), key: photo.sha256, maxPixel: maxPixel)
+        .task(id: "\(photo.sha256)-\(maxPixel)-\(library.defaultEdits[photo.id]?.updatedAt ?? "")-\(useEdit)") {
+            let img = await ImageCache.shared.image(for: library.url(photo), key: photo.sha256, maxPixel: maxPixel,
+                                                    edit: useEdit ? library.defaultEdits[photo.id] : nil)
             image = img
             failed = img == nil
         }

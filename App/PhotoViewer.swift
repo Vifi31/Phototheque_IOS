@@ -9,6 +9,8 @@ struct PhotoViewer: View {
     @State private var index: Int
     @State private var showInfo = false
     @State private var chrome = true
+    @State private var retouchePhoto: Photo?
+    @State private var exportIds: [Int64]?
 
     init(photos: [Photo], startIndex: Int) {
         self.photos = photos
@@ -38,7 +40,12 @@ struct PhotoViewer: View {
                         Spacer()
                         Text("\(index + 1) / \(photos.count)").font(.footnote).monospacedDigit()
                         Spacer()
+                        Button { retouchePhoto = p } label: { Image(systemName: "slider.horizontal.3").font(.title3) }
+                            .accessibilityLabel("Retoucher")
+                        Button { exportIds = [p.id] } label: { Image(systemName: "square.and.arrow.up.on.square").font(.title3) }
+                            .padding(.leading, 12).accessibilityLabel("Exporter")
                         ShareLink(item: library.url(p)) { Image(systemName: "square.and.arrow.up").font(.title3) }
+                            .padding(.leading, 12)
                         Button { showInfo = true } label: { Image(systemName: "info.circle").font(.title3) }
                             .padding(.leading, 12)
                             .accessibilityLabel("Informations")
@@ -60,6 +67,8 @@ struct PhotoViewer: View {
             }
         }
         .statusBarHidden(!chrome)
+        .fullScreenCover(item: $retouchePhoto) { RetoucheView(photo: $0) }
+        .sheet(isPresented: Binding(get: { exportIds != nil }, set: { if !$0 { exportIds = nil } })) { ExportSheet(ids: exportIds ?? []) }
         .sheet(isPresented: $showInfo) {
             if let p = current {
                 NavigationStack { PhotoInfoView(photo: p) }

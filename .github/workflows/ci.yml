@@ -45,7 +45,11 @@ jobs:
           set -o pipefail
           xcodebuild -project Phototheque.xcodeproj -scheme Phototheque -configuration Debug \
             -destination 'generic/platform=iOS Simulator' -derivedDataPath build/sim \
-            CODE_SIGNING_ALLOWED=NO build | tail -n 60
+            CODE_SIGNING_ALLOWED=NO build 2>&1 | tee build.log | tail -n 60 || {
+              # Erreurs de compilation reprises en annotations (lisibles sans compte GitHub).
+              grep -E "error:" build.log | sort -u | head -30 | sed -E 's|^.*/App/|App/|; s/^/::error::/'
+              exit 1
+            }
       - name: Lancement dans le simulateur + import de 3 photos
         run: |
           set -euo pipefail

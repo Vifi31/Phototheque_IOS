@@ -12,6 +12,15 @@ public struct BackupManifest: Codable, Sendable {
     public var photos: [BackupPhoto]
     public var keywords: [BackupKeyword]
     public var collections: [BackupCollection]
+    /// Versions de retouche (depuis la version 0.3) : absentes des archives plus anciennes.
+    public var edits: [BackupEdit]? = nil
+}
+
+public struct BackupEdit: Codable, Sendable {
+    public var sha256: String
+    public var name: String
+    public var params: EditParams
+    public var isDefault: Bool
 }
 
 public struct BackupPhoto: Codable, Sendable {
@@ -61,6 +70,7 @@ public struct RestoreReport: Equatable, Sendable {
     public var photosWithoutFile = 0
     public var keywords = 0
     public var collectionsAdded = 0
+    public var editsAdded = 0
     public var safetyBackup: String?
 }
 
@@ -110,8 +120,12 @@ extension Catalog {
             if let ids = crit?.keywordIds, !ids.isEmpty { kps = try ids.map { try path($0) }; crit?.keywordIds = [] }
             return BackupCollection(name: c.name, kind: c.kind, criteria: crit, keywordPath: nil, keywordPaths: kps, photos: shas)
         }
+        var edits: [BackupEdit] = []
+        for p in all {
+            for e in try editVersions(p.id) { edits.append(BackupEdit(sha256: p.sha256, name: e.name, params: e.params, isDefault: e.isDefault)) }
+        }
         return BackupManifest(appVersion: Catalog.appVersion, createdAt: ISODate.now, includesPhotos: includePhotos,
-                              photos: photos, keywords: kws, collections: colls)
+                              photos: photos, keywords: kws, collections: colls, edits: edits.isEmpty ? nil : edits)
     }
 
     /// Crée une archive ZIP dans `Sauvegardes/` (ou à l'emplacement donné) : catalogue + photos si demandé.
@@ -261,7 +275,16 @@ extension Catalog {
             }
             report.collectionsAdded += 1
         }
-        log("restauration", "\(url.lastPathComponent) : \(report.photosAdded) ajoutée(s), \(report.photosUpdated) mise(s) à jour")
+        // Versions de retouche : ajoutées si la photo n'a pas déjà une version de même nom.
+        for e in m.edits ?? [] {
+            guard let p = try photo(sha256: e.sha256) else { continue }
+            let have = try editVersions(p.id)
+            if have.contains(where: { $0.name == e.name }) { continue }
+            let v = try createEdit(photoId: p.id, name: e.name, params: e.params)
+            if e.isDefault && !have.isEmpty { try setDefaultEdit(v.id) }
+            report.editsAdded += 1
+        }
+        log("restauration","\(url.lastPathComponent) : \(report.photosAdded) ajoutée(s), \(report.photosUpdated) mise(s) à jour")
         return report
     }
 

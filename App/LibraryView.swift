@@ -18,6 +18,8 @@ struct LibraryView: View {
     @State private var collectionSheet = false
     @State private var confirmDelete = false
     @State private var filtersSheet = false
+    @State private var exportSheet = false
+    @State private var retouchePhoto: Photo?
 
     struct ViewerStart: Identifiable { let id: Int }
 
@@ -66,6 +68,8 @@ struct LibraryView: View {
                 PhotoViewer(photos: library.photos, startIndex: start.id)
             }
             .sheet(isPresented: $filtersSheet) { FiltersSheet(initial: library.criteria) }
+            .sheet(isPresented: $exportSheet) { ExportSheet(ids: selectedIds) }
+            .fullScreenCover(item: $retouchePhoto) { RetoucheView(photo: $0) }
             .sheet(isPresented: $keywordSheet) {
                 KeywordPickerSheet(title: "Ajouter un mot-clé à \(selectedIds.count) photo(s)") { kid in
                     library.run { try library.catalog.assignKeyword(kid, to: selectedIds) }
@@ -192,6 +196,10 @@ struct LibraryView: View {
                         }
                     }
                     Button { keywordSheet = true } label: { Label("Ajouter un mot-clé…", systemImage: "tag") }
+                    Button { exportSheet = true } label: { Label("Exporter…", systemImage: "square.and.arrow.up.on.square") }
+                    if selection.count == 1, let p = library.photos.first(where: { selection.contains($0.id) }) {
+                        Button { retouchePhoto = p } label: { Label("Retoucher…", systemImage: "slider.horizontal.3") }
+                    }
                     Button { collectionSheet = true } label: { Label("Ajouter à une collection…", systemImage: "rectangle.stack.badge.plus") }
                     Button {
                         prompt = TextPrompt(title: "Lieu", message: "Lieu de \(selectedIds.count) photo(s)", placeholder: "Ville, région…") { text in
@@ -249,6 +257,7 @@ struct LibraryView: View {
 
     @ViewBuilder private func contextMenu(for photo: Photo) -> some View {
         Button { viewerIndex = ViewerStart(id: library.photos.firstIndex(of: photo) ?? 0) } label: { Label("Ouvrir", systemImage: "eye") }
+        Button { retouchePhoto = photo } label: { Label("Retoucher…", systemImage: "slider.horizontal.3") }
         ShareLink(item: library.url(photo)) { Label("Partager", systemImage: "square.and.arrow.up") }
         Button {
             selecting = true

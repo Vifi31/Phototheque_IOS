@@ -104,12 +104,20 @@ final class ImageCache: @unchecked Sendable {
         memory.countLimit = 600
     }
 
-    func image(for url: URL, key: String, maxPixel: Int) async -> UIImage? {
-        let k = "\(key)-\(maxPixel)" as NSString
+    /// Vignette ou aperçu ; avec `edit`, l'image retouchée (le cache est propre à la version et à sa dernière modification).
+    func image(for url: URL, key: String, maxPixel: Int, edit: EditVersion? = nil) async -> UIImage? {
+        let stamp = edit.map { "-e\($0.id)-" + $0.updatedAt.filter { $0.isNumber } } ?? ""
+        let k = "\(key)\(stamp)-\(maxPixel)" as NSString
         if let img = memory.object(forKey: k) { return img }
-        let file = dir.appendingPathComponent("\(key)-\(maxPixel).jpg")
+        let file = dir.appendingPathComponent("\(key)\(stamp)-\(maxPixel).jpg")
+        let params = edit?.params
         let img = await Task.detached(priority: .userInitiated) { () -> UIImage? in
             if let d = try? Data(contentsOf: file), let i = UIImage(data: d) { return i }
+            if let params {
+                guard let e = EditRenderer.preview(url: url, params: params, maxPixel: maxPixel) else { return nil }
+                if maxPixel <= 600, let jpg = e.jpegData(compressionQuality: 0.82) { try? jpg.write(to: file) }
+                return e
+            }
             guard let cg = ImageTools.thumbnail(of: url, maxPixel: maxPixel) else { return nil }
             let i = UIImage(cgImage: cg)
             if maxPixel <= 600, let jpg = i.jpegData(compressionQuality: 0.82) { try? jpg.write(to: file) }

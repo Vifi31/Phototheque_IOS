@@ -2,7 +2,7 @@ import Foundation
 
 /// Schéma de la base et migrations numérotées (`PRAGMA user_version`).
 public enum Schema {
-    public static let version = 1
+    public static let version = 2
 
     static let v1 = """
     CREATE TABLE photos (
@@ -75,6 +75,21 @@ public enum Schema {
     CREATE TABLE settings (key TEXT PRIMARY KEY, value TEXT NOT NULL);
     """
 
+    /// Version 2 : retouche non destructive (une ligne par version de retouche d'une photo).
+    static let v2 = """
+    CREATE TABLE edits (
+      id INTEGER PRIMARY KEY,
+      photo_id INTEGER NOT NULL REFERENCES photos(id) ON DELETE CASCADE,
+      name TEXT NOT NULL,
+      params TEXT NOT NULL,
+      is_default INTEGER NOT NULL DEFAULT 0,
+      created_at TEXT NOT NULL,
+      updated_at TEXT NOT NULL,
+      history TEXT NOT NULL DEFAULT '{}'
+    );
+    CREATE INDEX edits_photo ON edits(photo_id);
+    """
+
     /// Index plein texte (FTS5) tenu à jour par déclencheurs. Absent si le SQLite n'a pas FTS5.
     static let fts = """
     CREATE VIRTUAL TABLE photos_fts USING fts5(search_text, content='photos', content_rowid='id', tokenize='unicode61 remove_diacritics 2');
@@ -102,6 +117,12 @@ public enum Schema {
                 try db.execute(v1)
                 if fullText && db.hasFTS5() { try db.execute(fts) }
                 try db.execute("PRAGMA user_version = 1")
+            }
+        }
+        if current < 2 {
+            try db.transaction {
+                try db.execute(v2)
+                try db.execute("PRAGMA user_version = 2")
             }
         }
         return try db.first("SELECT name FROM sqlite_master WHERE name = 'photos_fts'") != nil

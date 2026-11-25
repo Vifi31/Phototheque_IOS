@@ -19,6 +19,8 @@ final class Library: ObservableObject {
     @Published var criteria = SearchCriteria() { didSet { if criteria != oldValue { reload() } } }
     @Published private(set) var photos: [Photo] = []
     @Published private(set) var total = 0
+    /// Versions de retouche par défaut (non neutres) par photo : la grille et la visionneuse les affichent.
+    @Published private(set) var defaultEdits: [Int64: EditVersion] = [:]
     @Published var message: Message?
     @Published var busy: String?
     /// Incrémenté à chaque modification : les vues secondaires se rechargent.
@@ -59,6 +61,7 @@ final class Library: ObservableObject {
         do {
             photos = try catalog.search(criteria, limit: Library.gridLimit)
             total = try catalog.count(criteria)
+            defaultEdits = try catalog.defaultEdits()
         } catch { report(error) }
     }
 
