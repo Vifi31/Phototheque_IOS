@@ -60,6 +60,12 @@ public struct UpdateStatus: Equatable, Sendable {
     public var sumsURL: String?
     public var error: String?
 
+    public init(current: String, latest: String? = nil, newer: Bool = false, notes: String = "", pageURL: String = "",
+                ipaURL: String? = nil, ipaName: String? = nil, sumsURL: String? = nil, error: String? = nil) {
+        self.current = current; self.latest = latest; self.newer = newer; self.notes = notes; self.pageURL = pageURL
+        self.ipaURL = ipaURL; self.ipaName = ipaName; self.sumsURL = sumsURL; self.error = error
+    }
+
     /// Compare la version installée à la dernière release.
     public static func evaluate(current: String, release: ReleaseInfo?) -> UpdateStatus {
         guard let r = release else {

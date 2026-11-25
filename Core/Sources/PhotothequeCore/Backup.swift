@@ -196,7 +196,7 @@ extension Catalog {
     public func backups() -> [(url: URL, size: Int64, date: Date)] {
         let fm = FileManager.default
         let urls = (try? fm.contentsOfDirectory(at: backupsDir, includingPropertiesForKeys: [.fileSizeKey, .contentModificationDateKey])) ?? []
-        return urls.filter { $0.pathExtension.lowercased() == "zip" }.map { u in
+        return urls.filter { ["zip", BackupCrypto.fileExtension].contains($0.pathExtension.lowercased()) && !$0.lastPathComponent.hasPrefix(".") }.map { u in
             let v = try? u.resourceValues(forKeys: [.fileSizeKey, .contentModificationDateKey])
             return (u, Int64(v?.fileSize ?? 0), v?.contentModificationDate ?? .distantPast)
         }.sorted { $0.date > $1.date }
@@ -211,7 +211,7 @@ extension Catalog {
     }
 
     /// Vérifie une archive sans rien modifier : lecture du catalogue, CRC et empreinte SHA-256 de chaque photo.
-    public static func verifyArchive(_ url: URL) throws -> ArchiveCheck {
+    static func verifyPlain(_ url: URL) throws -> ArchiveCheck {
         let zip = try ZipReader(url: url)
         let m = try readManifest(zip)
         var problems: [String] = []
@@ -240,7 +240,7 @@ extension Catalog {
     /// - photos reconnues par SHA-256 : les informations de l'archive (titre, légende, note, étiquette, lieu,
     ///   mots-clés ajoutés) sont appliquées ; photos absentes : recopiées depuis l'archive si elle les contient ;
     /// - mots-clés et collections manquants : recréés. Rien n'est supprimé.
-    public func restore(from url: URL, progress: ((Int, Int) -> Void)? = nil) throws -> RestoreReport {
+    func restorePlain(from url: URL, progress: ((Int, Int) -> Void)? = nil, parts: RestoreParts = .all) throws -> RestoreReport {
         let zip = try ZipReader(url: url)
         let m = try Catalog.readManifest(zip)
         var report = RestoreReport()
@@ -251,7 +251,7 @@ extension Catalog {
         try FileManager.default.createDirectory(at: tmpDir, withIntermediateDirectories: true)
         defer { try? FileManager.default.removeItem(at: tmpDir) }
 
-        for k in m.keywords where !k.path.isEmpty {
+        for k in m.keywords where !k.path.isEmpty && parts.contains(.keywords) {
             let id = try keywordPath(k.path.joined(separator: "/"))
             if !k.synonyms.isEmpty, let cur = try keyword(id) {
                 var syn = cur.synonyms
@@ -265,7 +265,7 @@ extension Catalog {
             defer { progress?(i + 1, m.photos.count) }
             var target = try photo(sha256: bp.sha256)
             if target == nil {
-                guard let e = zip.entry("Photos/" + bp.relPath) else { report.photosWithoutFile += 1; continue }
+                guard parts.contains(.files), let e = zip.entry("Photos/" + bp.relPath) else { report.photosWithoutFile += 1; continue }
                 let tmp = tmpDir.appendingPathComponent(TextFold.safeFileName(bp.fileName))
                 try zip.extract(e, to: tmp)
                 let meta = PhotoMetadata(width: bp.width, height: bp.height, format: bp.format, takenAt: ISODate.date(bp.takenAt),
@@ -279,10 +279,12 @@ extension Catalog {
             }
             guard let p = target else { continue }
             try db.transaction {
-                try db.run("UPDATE photos SET title = ?, caption = ?, rating = ?, color = ?, place = ?, taken_at = IFNULL(taken_at, ?), dhash = IFNULL(dhash, ?) WHERE id = ?",
-                           [.text(bp.title), .text(bp.caption), .of(max(0, min(5, bp.rating))), .of(max(0, min(5, bp.color))), .text(bp.place),
-                            .of(bp.takenAt), .of(bp.dhash), .int(p.id)])
-                for path in bp.keywords where !path.isEmpty {
+                if parts.contains(.metadata) {
+                    try db.run("UPDATE photos SET title = ?, caption = ?, rating = ?, color = ?, place = ?, taken_at = IFNULL(taken_at, ?), dhash = IFNULL(dhash, ?) WHERE id = ?",
+                               [.text(bp.title), .text(bp.caption), .of(max(0, min(5, bp.rating))), .of(max(0, min(5, bp.color))), .text(bp.place),
+                                .of(bp.takenAt), .of(bp.dhash), .int(p.id)])
+                }
+                for path in bp.keywords where !path.isEmpty && parts.contains(.keywords) {
                     let kid = try keywordPath(path.joined(separator: "/"))
                     try db.run("INSERT OR IGNORE INTO photo_keywords(photo_id, keyword_id) VALUES (?, ?)", [.int(p.id), .int(kid)])
                 }
@@ -291,7 +293,7 @@ extension Catalog {
         }
 
         let existing = try collections()
-        for c in m.collections {
+        for c in m.collections where parts.contains(.collections) {
             var crit = c.criteria
             if let kps = c.keywordPaths, !kps.isEmpty { crit?.keywordIds = try kps.map { try keywordPath($0.joined(separator: "/")) } }
             else if let kp = c.keywordPath, !kp.isEmpty { crit?.keywordIds = [try keywordPath(kp.joined(separator: "/"))] }
@@ -307,7 +309,7 @@ extension Catalog {
             report.collectionsAdded += 1
         }
         // Versions de retouche : ajoutées si la photo n'a pas déjà une version de même nom.
-        for e in m.edits ?? [] {
+        for e in (parts.contains(.edits) ? (m.edits ?? []) : []) {
             guard let p = try photo(sha256: e.sha256) else { continue }
             let have = try editVersions(p.id)
             if have.contains(where: { $0.name == e.name }) { continue }
@@ -317,7 +319,7 @@ extension Catalog {
         }
                 // Albums : recréés s'il n'y en a pas déjà un de même nom et de même nombre de pages.
         let haveAlbums = try albums()
-        for ba in m.albums ?? [] {
+        for ba in (parts.contains(.albums) ? (m.albums ?? []) : []) {
             if haveAlbums.contains(where: { $0.name == ba.name && $0.pageCount == ba.pages.count }) { continue }
             let created = try createAlbum(name: ba.name, format: ba.format, widthMM: ba.widthMM, heightMM: ba.heightMM, description: ba.description)
             for bp in ba.pages {

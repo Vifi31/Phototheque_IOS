@@ -4,16 +4,22 @@ import PhotothequeCore
 @main
 struct PhotothequeApp: App {
     @StateObject private var library = Library.open()
+    @Environment(\.scenePhase) private var scenePhase
 
     var body: some Scene {
         WindowGroup {
             RootView()
                 .environmentObject(library)
+                .overlay { if library.locked { LockScreen().environmentObject(library) } }
+                .onChange(of: scenePhase) { _, phase in
+                    if phase == .background { library.lockIfEnabled() }
+                    if phase == .active { library.refreshBackupStatus() }
+                }
         }
     }
 }
 
-enum AppTab: Hashable { case photos, keywords, collections, analyse, settings }
+enum AppTab: Hashable { case photos, keywords, collections, albums, analyse, settings }
 
 struct RootView: View {
     @EnvironmentObject var library: Library
@@ -33,6 +39,9 @@ struct RootView: View {
                     CollectionsView()
                         .tabItem { Label("Collections", systemImage: "rectangle.stack") }
                         .tag(AppTab.collections)
+                    AlbumsView()
+                        .tabItem { Label("Albums", systemImage: "book") }
+                        .tag(AppTab.albums)
                     AnalyseView()
                         .tabItem { Label("Analyse", systemImage: "chart.bar.xaxis") }
                         .tag(AppTab.analyse)

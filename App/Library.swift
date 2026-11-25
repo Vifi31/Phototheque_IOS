@@ -23,6 +23,9 @@ final class Library: ObservableObject {
     @Published private(set) var defaultEdits: [Int64: EditVersion] = [:]
     @Published var message: Message?
     @Published var busy: String?
+    @Published private(set) var backupStatus: BackupStatus?
+    /// Écran verrouillé (Face ID / code) : activé dans les Réglages.
+    @Published var locked = UserDefaults.standard.bool(forKey: "lock.enabled")
     /// Incrémenté à chaque modification : les vues secondaires se rechargent.
     @Published private(set) var revision = 0
 
@@ -47,13 +50,84 @@ final class Library: ObservableObject {
             Task { @MainActor in await lib.importFiles(urls) }
         }
         #endif
+        lib.autoBackupIfDue()
         return lib
     }
 
     init(catalog: Catalog?, error: String?) {
         self.catalog = catalog
         self.openError = error
-        if catalog != nil { reload() }
+        if catalog != nil { reload(); refreshBackupStatus() }
+    }
+
+    // MARK: - Sauvegardes
+
+    func refreshBackupStatus() {
+        guard let catalog else { return }
+        backupStatus = try? catalog.backupStatus()
+    }
+
+    /// À l'ouverture : sauvegarde automatique si elle est activée et due (iOS ne permet pas de tâche planifiée en arrière-plan).
+    func autoBackupIfDue() {
+        guard let catalog, backupStatus?.due == true, catalog.backupPolicy().automatic, busy == nil else { return }
+        runBackup(automatic: true)
+    }
+
+    /// Sauvegarde selon les réglages (chiffrement, nombre d'archives gardées, copies vers les dossiers choisis).
+    func runBackup(includePhotos: Bool? = nil, automatic: Bool = false) {
+        let policy = catalog.backupPolicy()
+        let pw = policy.encrypt ? Keychain.load() : nil
+        if policy.encrypt && pw == nil { report(SQLiteError("Le chiffrement est activé mais aucun mot de passe n'est enregistré (Réglages › Sauvegardes).")); return }
+        busy = automatic ? "Sauvegarde automatique…" : "Sauvegarde…"
+        Task { @MainActor in
+            await Task.yield()
+            do {
+                let url = try catalog.protectedBackup(includePhotos: includePhotos ?? policy.includePhotos, password: pw) { d, t in self.busy = "Sauvegarde \(d) / \(t)…" }
+                catalog.rotateBackups(keep: policy.keep)
+                var note = "Sauvegarde créée : \(url.lastPathComponent)" + (pw != nil ? " (chiffrée)." : ".")
+                if policy.copyToDestinations {
+                    let r = copyToDestinations(url, keep: policy.keep)
+                    if r.copied > 0 { note += "\nCopiée dans \(r.copied) dossier(s) hors de l'application." }
+                    if !r.errors.isEmpty { note += "\n⚠︎ " + r.errors.joined(separator: "\n⚠︎ ") }
+                } else { note += " Pensez à la copier hors de l'appareil (bouton Partager)." }
+                busy = nil
+                refreshBackupStatus(); revision += 1
+                inform(note)
+            } catch { busy = nil; report(error) }
+        }
+    }
+
+    /// Copie l'archive dans chaque dossier de destination (signets de sécurité) et n'y garde que les `keep` plus récentes.
+    func copyToDestinations(_ url: URL, keep: Int) -> (copied: Int, errors: [String]) {
+        var list = catalog.backupDestinations()
+        var copied = 0, errors: [String] = []
+        for i in list.indices {
+            do {
+                var stale = false
+                let dir = try URL(resolvingBookmarkData: list[i].bookmark, options: [], relativeTo: nil, bookmarkDataIsStale: &stale)
+                let scoped = dir.startAccessingSecurityScopedResource(); defer { if scoped { dir.stopAccessingSecurityScopedResource() } }
+                let dest = dir.appendingPathComponent(url.lastPathComponent)
+                try? FileManager.default.removeItem(at: dest)
+                try FileManager.default.copyItem(at: url, to: dest)
+                catalog.rotateBackups(keep: keep, in: dir)
+                list[i].lastCopyAt = ISODate.now; list[i].lastError = nil
+                copied += 1
+            } catch {
+                list[i].lastError = error.localizedDescription
+                errors.append("\(list[i].name) : \(error.localizedDescription)")
+            }
+        }
+        try? catalog.setBackupDestinations(list)
+        if copied > 0 { try? catalog.noteBackup() }
+        return (copied, errors)
+    }
+
+    // MARK: - Verrouillage
+
+    func lockIfEnabled() { if UserDefaults.standard.bool(forKey: "lock.enabled") { locked = true } }
+
+    func unlock() async {
+        if await Biometrics.authenticate(reason: "Déverrouiller Photothèque") { locked = false }
     }
 
     func reload() {

@@ -45,6 +45,7 @@ targets:
         # Dossier Photothèque visible dans l'app Fichiers (« Sur mon iPhone »).
         UIFileSharingEnabled: true
         LSSupportsOpeningDocumentsInPlace: true
+        NSFaceIDUsageDescription: Photothèque peut se verrouiller avec Face ID ou le code de l'appareil.
         NSPhotoLibraryUsageDescription: Photothèque copie les photos que vous choisissez pour les classer ; vos originaux ne sont jamais modifiés.
         ITSAppUsesNonExemptEncryption: false
     settings:

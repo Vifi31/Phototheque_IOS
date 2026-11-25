@@ -285,3 +285,84 @@ final class AlbumTests: CatalogTestCase {
         XCTAssertEqual(try other.albums().count, 1)
     }
 }
+
+final class DocumentTests: CatalogTestCase {
+    func fill() throws -> [Photo] {
+        [
+            try add("a.jpg", "a", PhotoMetadata(takenAt: ISODate.date("2021-05-01T10:00:00Z"), cameraMake: "Canon", cameraModel: "Canon EOS R6", title: "Plage", keywords: ["Lieux/Corse", "Famille"], rating: 5)),
+            try add("b.jpg", "b", PhotoMetadata(takenAt: ISODate.date("2021-06-01T10:00:00Z"), cameraMake: "Apple", cameraModel: "iPhone 13", keywords: ["Famille"])),
+            try add("c.jpg", "c", PhotoMetadata(takenAt: ISODate.date("2022-01-01T10:00:00Z"), cameraMake: "Apple", cameraModel: "iPhone 13")),
+            try add("d.jpg", "d"),
+        ]
+    }
+
+    func testSectionsGrouping() throws {
+        let p = try fill()
+        let ids = p.map(\.id)
+        XCTAssertEqual(try cat.docSections(ids, by: .none).map(\.photoIds), [ids])
+        let y = try cat.docSections(ids, by: .year)
+        XCTAssertEqual(y.map(\.title), ["2021", "2022", "Sans date"])
+        XCTAssertEqual(y.map { $0.photoIds.count }, [2, 1, 1])
+        XCTAssertEqual(try cat.docSections(ids, by: .month).map(\.title), ["2021-05", "2021-06", "2022-01", "Sans date"])
+        let k = try cat.docSections(ids, by: .keyword)
+        XCTAssertEqual(k.map(\.title), ["Famille", "Sans mot-clé"], "une photo n'est dans qu'une section : le premier mot-clé racine par ordre alphabétique")
+        XCTAssertEqual(k.map { $0.photoIds.count }, [2, 2])
+        XCTAssertEqual(try cat.docSections(ids, by: .camera).map(\.title), ["Apple iPhone 13", "Canon EOS R6", "Appareil inconnu"])
+        XCTAssertEqual(try cat.docSections(ids, by: .rating).map(\.title), ["★★★★★", "Sans note"])
+        XCTAssertEqual(try cat.docSections(ids, by: .place).map(\.title), ["Sans lieu"])
+        XCTAssertEqual(try cat.docSections([], by: .year).count, 0)
+        // Toutes les photos sont placées une seule fois.
+        for by in DocGroupBy.allCases { XCTAssertEqual(try cat.docSections(ids, by: by).flatMap(\.photoIds).sorted(), ids.sorted(), by.rawValue) }
+    }
+
+    func testPlanContactSheetPagination() throws {
+        let p = try fill()
+        var o = DocumentOptions(); o.kind = .contactSheet; o.columns = 2; o.rows = 1; o.groupBy = .year; o.toc = true; o.cover = true
+        let plan = try cat.documentPlan(p.map(\.id), options: o)
+        // couverture, sommaire, 2021 (2 photos = 1 page), 2022 (1 page), sans date (1 page)
+        XCTAssertEqual(plan.pages.count, 5)
+        XCTAssertEqual(plan.pages[0], .cover); XCTAssertEqual(plan.pages[1], .toc)
+        XCTAssertEqual(plan.toc.map(\.title), ["2021", "2022", "Sans date"])
+        XCTAssertEqual(plan.toc.map(\.page), [3, 4, 5])
+        XCTAssertEqual(plan.toc.map(\.count), [2, 1, 1])
+        // Une seule colonne et ligne : une photo par page.
+        o.columns = 1; o.rows = 1; o.cover = false; o.toc = false; o.groupBy = .none
+        let plan2 = try cat.documentPlan(p.map(\.id), options: o)
+        XCTAssertEqual(plan2.pages.count, 4)
+        if case .grid(_, let ids, let n, let of) = plan2.pages[3] { XCTAssertEqual(ids.count, 1); XCTAssertEqual(n, 4); XCTAssertEqual(of, 4) } else { XCTFail("grille attendue") }
+        // Sans regroupement le sommaire est inutile.
+        o.toc = true
+        XCTAssertFalse(try cat.documentPlan(p.map(\.id), options: o).pages.contains(.toc))
+        XCTAssertEqual(DocumentOptions().with { $0.columns = 99; $0.rows = 0 }.clamped.columns, 8)
+        XCTAssertEqual(DocumentOptions().with { $0.columns = 99; $0.rows = 0 }.clamped.rows, 1)
+    }
+
+    func testPlanOtherKinds() throws {
+        let p = try fill(), ids = p.map(\.id)
+        var o = DocumentOptions(); o.kind = .detailSheets
+        let d = try cat.documentPlan(ids, options: o)
+        XCTAssertEqual(d.pages, ids.map { DocPage.detail(photoId: $0) })
+        o.kind = .portfolio
+        let pf = try cat.documentPlan(ids, options: o)
+        XCTAssertEqual(pf.pages.first, .cover); XCTAssertEqual(pf.pages.last, .colophon); XCTAssertEqual(pf.pages.count, 6)
+        o.kind = .catalog; o.groupBy = .keyword; o.columns = 3; o.rows = 3; o.toc = true; o.cover = false
+        let c = try cat.documentPlan(ids, options: o)
+        XCTAssertEqual(c.pages.first, .toc)
+        XCTAssertEqual(c.toc.map(\.title), ["Famille", "Lieux", "Sans mot-clé"].filter { t in c.sections.contains { $0.title == t && !$0.photoIds.isEmpty } })
+        XCTAssertEqual(c.photoCount, 4)
+        XCTAssertEqual(try cat.documentPlan([], options: o).pages, [], "aucune photo : aucune page")
+    }
+
+    func testCaptionLines() throws {
+        let p = try fill()
+        let a = try cat.photo(p[0].id)!
+        XCTAssertEqual(try cat.docLines(a, fields: [.name, .title, .date, .rating, .keywords, .camera, .place]),
+                       ["a.jpg", "Plage", "2021-05-01", "★★★★★", "Famille, Lieux/Corse", "Canon EOS R6"])
+        XCTAssertEqual(try cat.docLines(p[3], fields: [.title, .date, .rating]), [], "champs vides omis")
+        XCTAssertEqual(DocField.allCases.count, 7)
+    }
+}
+
+extension DocumentOptions {
+    func with(_ edit: (inout DocumentOptions) -> Void) -> DocumentOptions { var c = self; edit(&c); return c }
+}
